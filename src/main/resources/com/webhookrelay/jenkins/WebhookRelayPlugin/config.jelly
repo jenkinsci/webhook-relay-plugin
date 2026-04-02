@@ -1,0 +1,78 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+
+  <f:section title="Webhook Relay">
+
+    <f:entry title="Enable" field="enabled"
+             description="Enable or disable the Webhook Relay WebSocket connection">
+      <f:checkbox />
+    </f:entry>
+
+    <f:entry title="API Key" field="apiKey"
+             description="Your Webhook Relay token key. Get one at https://my.webhookrelay.com/tokens">
+      <f:password />
+    </f:entry>
+
+    <f:entry title="API Secret" field="apiSecret"
+             description="Your Webhook Relay token secret">
+      <f:password />
+    </f:entry>
+
+    <f:entry title="Buckets" field="buckets"
+             description="Comma-separated list of bucket names to subscribe to. Leave empty to subscribe to all buckets.">
+      <f:textbox />
+    </f:entry>
+
+    <f:entry title="SCM Webhook Preset" field="scmPreset"
+             description="Select your SCM provider to configure the correct webhook endpoint path. This determines where received webhooks are forwarded inside Jenkins.">
+      <f:select />
+    </f:entry>
+
+    <f:entry title="Connection Status">
+      <div id="webhook-relay-status">
+        <j:choose>
+          <j:when test="${instance.connectionStatus.name() == 'SUBSCRIBED' ||
+                          instance.connectionStatus.name() == 'AUTHENTICATED' ||
+                          instance.connectionStatus.name() == 'CONNECTED'}">
+            <span style="color:green; font-weight:bold;">
+              &#x2714; ${instance.connectionStatus.displayName}
+              <j:if test="${instance.statusMessage != ''}"> - ${instance.statusMessage}</j:if>
+            </span>
+          </j:when>
+          <j:when test="${instance.connectionStatus.name() == 'ERROR' ||
+                          instance.connectionStatus.name() == 'AUTH_FAILED'}">
+            <span style="color:red; font-weight:bold;">
+              &#x2718; ${instance.connectionStatus.displayName}
+              <j:if test="${instance.statusMessage != ''}"> - ${instance.statusMessage}</j:if>
+            </span>
+          </j:when>
+          <j:when test="${instance.connectionStatus.name() == 'CONNECTING'}">
+            <span style="color:orange;">
+              &#x25CF; ${instance.connectionStatus.displayName}
+            </span>
+          </j:when>
+          <j:otherwise>
+            <span style="color:gray;">
+              &#x25CB; ${instance.connectionStatus.displayName}
+            </span>
+          </j:otherwise>
+        </j:choose>
+      </div>
+    </f:entry>
+
+    <f:entry>
+      <f:validateButton title="Test Connection" progress="Testing..."
+                        method="testConnection"
+                        with="apiKey,apiSecret,buckets" />
+    </f:entry>
+
+    <f:entry title="Quick Setup"
+             description="Automatically create a Webhook Relay bucket, input, and output for the selected SCM preset. The output will point to your Jenkins webhook endpoint.">
+      <f:validateButton title="Auto Setup" progress="Setting up..."
+                        method="autoSetup"
+                        with="apiKey,apiSecret,scmPreset" />
+    </f:entry>
+
+  </f:section>
+
+</j:jelly>
