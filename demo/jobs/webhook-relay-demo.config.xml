@@ -32,7 +32,7 @@
       <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
       <extensions/>
     </scm>
-    <scriptPath>Jenkinsfile</scriptPath>
+    <scriptPath>demo/Jenkinsfile</scriptPath>
     <lightweight>false</lightweight>
   </definition>
   <disabled>false</disabled>

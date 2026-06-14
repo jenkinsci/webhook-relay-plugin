@@ -1,198 +1,177 @@
 # Webhook Relay Plugin for Jenkins
 
-Receives webhooks via [Webhook Relay](https://webhookrelay.com) WebSocket tunnel and forwards them to Jenkins. This enables GitHub, GitLab, Bitbucket, and other webhook integrations **without exposing Jenkins to the public internet**.
+Receive GitHub, GitLab, and Bitbucket webhooks in Jenkins **without exposing Jenkins to
+the public internet**. The plugin opens an outbound connection to a
+[Webhook Relay](https://webhookrelay.com) **bucket** and forwards every webhook it receives
+to the matching Jenkins endpoint (`/github-webhook/`, `/bitbucket-hook/`, …), so your SCM
+can trigger builds even when Jenkins lives on a private network, behind a firewall, or on
+your laptop.
 
-## How It Works
-
-The plugin maintains a persistent WebSocket connection to Webhook Relay's server (`wss://my.webhookrelay.com/v1/socket`). When a webhook is sent to your Webhook Relay input endpoint, it is forwarded through the WebSocket tunnel directly to your Jenkins instance. Jenkins' response (status code, headers, body) is then sent back to Webhook Relay's logs API so you can see the full request/response cycle in the Webhook Relay dashboard.
+Because delivery goes through a Webhook Relay **bucket** (the forwarding feature — not a
+tunnel), every request is recorded on the bucket's logs page, giving you a full
+request/response history for debugging.
 
 ```
-GitHub/GitLab/Bitbucket → Webhook Relay Cloud → [WebSocket] → Jenkins Plugin → Jenkins Webhook Endpoints
-                                                                     ↓
-                                              Webhook Relay Logs ← Response (status, headers, body)
+GitHub / GitLab / Bitbucket
+        │  (webhook)
+        ▼
+https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into the SCM
+        │
+        ▼
+   Webhook Relay bucket  ──────────────►  logs page (every request + Jenkins response)
+        │  (outbound WebSocket, started by the plugin)
+        ▼
+   Jenkins  →  /github-webhook/  →  build triggered
 ```
+
+## How it works
+
+1. The plugin authenticates to Webhook Relay with your API token and **subscribes** to a
+   bucket over a persistent outbound WebSocket (`wss://my.webhookrelay.com/v1/socket`). No
+   inbound ports are opened on Jenkins.
+2. When a webhook hits the bucket's public input URL, Webhook Relay streams it down the
+   socket to the plugin.
+3. The plugin replays the request against the Jenkins webhook endpoint for your SCM
+   (selected via the **SCM Webhook Preset**) and sends Jenkins' response (status, headers,
+   body) back to the bucket log.
 
 ## Requirements
 
 - Jenkins 2.479.1 or newer
 - Java 17 or 21
-- A [Webhook Relay](https://webhookrelay.com) account with an API token
+- A free [Webhook Relay](https://webhookrelay.com) account and an API token
+  ([create one here](https://my.webhookrelay.com/tokens))
 
 ## Installation
 
-### From Jenkins Plugin Manager
+### From the Jenkins Plugin Manager
 
-1. Go to **Manage Jenkins** > **Manage Plugins** > **Available**
-2. Search for "Webhook Relay"
-3. Install and restart Jenkins
+1. **Manage Jenkins → Plugins → Available**, search for **Webhook Relay**, install, restart.
 
-### Manual Installation
+### Manual installation
 
-1. Download the latest `.hpi` file from the [releases page](https://github.com/jenkinsci/webhook-relay-plugin/releases)
-2. Go to **Manage Jenkins** > **Manage Plugins** > **Advanced**
-3. Upload the `.hpi` file under "Deploy Plugin"
-4. Restart Jenkins
+1. Download the latest `webhook-relay.hpi` from the [releases page](https://github.com/jenkinsci/webhook-relay-plugin/releases).
+2. **Manage Jenkins → Plugins → Advanced settings → Deploy Plugin**, upload the `.hpi`, restart.
+
+![Deploy the plugin](docs/images/01-install-deploy-plugin.png)
+
+Once installed, the plugin appears under **Installed plugins**:
+
+![Webhook Relay plugin installed](docs/images/02-installed-plugin.png)
 
 ## Configuration
 
-### Quick Setup (Recommended)
+1. Go to **Manage Jenkins → System** and scroll to the **Webhook Relay** section.
+2. Enter your **API Key** and **API Secret** ([get them here](https://my.webhookrelay.com/tokens)).
+3. Enter a **Bucket name** (e.g. `jenkins-plugin`). It can be an existing bucket or a new
+   name — the plugin creates it for you.
+4. Choose your **SCM Webhook Preset** (GitHub, GitLab, Bitbucket, or Generic Webhook Trigger).
+5. Tick **Enable** and click **Save**.
 
-1. Go to **Manage Jenkins** > **System** > **Webhook Relay**
-2. Enter your **API Key** and **API Secret** ([get them here](https://my.webhookrelay.com/tokens))
-3. Select your **SCM Webhook Preset** (GitHub, GitLab, Bitbucket, or Generic Webhook Trigger)
-4. Click **Auto Setup** - this will automatically:
-   - Create a Webhook Relay bucket (e.g., `jenkins-github`)
-   - Create an input endpoint (the URL you'll use in your SCM settings)
-   - Create an internal output pointing to the correct Jenkins webhook path
-5. Copy the webhook URL from the success message and paste it into your SCM repository webhook settings
-6. Check **Enable** and click **Save**
+![Configure the Webhook Relay plugin](docs/images/03-config-subscribed.png)
 
-### Manual Setup
+When connected, the **Connection Status** shows **✔ Subscribed**. Use **Test Connection**
+to verify your credentials without saving.
 
-#### 1. Create a Webhook Relay Token
+### Get your webhook URL
 
-1. Log in to [Webhook Relay](https://my.webhookrelay.com/tokens)
-2. Create a new token and note the **key** and **secret**
+Click **Get Webhook URL** to resolve the bucket's public input URL (creating the bucket if
+needed). Paste that URL into your repository's webhook settings.
 
-#### 2. Create a Bucket and Input
+![Resolve the webhook URL](docs/images/04-get-webhook-url.png)
 
-1. Go to [Buckets](https://my.webhookrelay.com/buckets)
-2. Create a new bucket (e.g., `jenkins-webhooks`)
-3. Note the input endpoint URL (e.g., `https://my.webhookrelay.com/v1/webhooks/...`)
+| SCM | Where to paste the URL | Webhook content type |
+|---|---|---|
+| GitHub | *Settings → Webhooks → Add webhook → Payload URL* | `application/json` |
+| GitLab | *Settings → Webhooks → URL* | — |
+| Bitbucket | *Repository settings → Webhooks → Add webhook → URL* | — |
 
-#### 3. Configure Output Destination
+That's it — you don't change anything else in the SCM. Webhook Relay receives the webhook
+on the public URL and the plugin forwards it to the right Jenkins endpoint.
 
-Create an output in your bucket with the destination set to your Jenkins webhook endpoint:
+## Triggering builds
 
-| SCM Provider | Webhook Endpoint Path |
+Configure your Jenkins job the same way you would for a publicly reachable Jenkins:
+
+- **GitHub**: a Pipeline/Freestyle job with a Git SCM pointing at the repo and **GitHub
+  hook trigger for GITScm polling** enabled (`githubPush()` in a declarative pipeline).
+- **GitLab** / **Bitbucket**: enable the corresponding hook trigger.
+- **Generic Webhook Trigger**: any job with the Generic Webhook Trigger configured.
+
+When a push arrives, the build starts — triggered by the webhook that travelled through the
+bucket and the plugin:
+
+![Build triggered by a GitHub push through Webhook Relay](docs/images/05-build-triggered.png)
+
+## Bucket logs
+
+Every webhook is recorded on the bucket's [logs page](https://my.webhookrelay.com/buckets),
+including the response Jenkins returned. A `sent` status with a `200` response status means
+Jenkins accepted the webhook.
+
+## Try it with Docker
+
+A ready-to-run demo lives in [`demo/`](demo/):
+
+```bash
+mvn -q clean package                                   # builds target/webhook-relay.hpi
+docker compose -f demo/docker-compose.yml up --build   # Jenkins on http://localhost:8095
+```
+
+The demo image pre-installs the `git`, `github`, `workflow-aggregator` and
+`generic-webhook-trigger` plugins and an admin user via Configuration as Code. Install
+`target/webhook-relay.hpi` from **Manage Jenkins → Plugins → Advanced**, then configure the
+Webhook Relay section as above. See [`demo/README.md`](demo/README.md) for details.
+
+## Configuration reference
+
+| Field | Description |
 |---|---|
-| GitHub | `http://localhost:8080/github-webhook/` |
-| GitLab | `http://localhost:8080/project/YOUR_JOB_NAME` |
-| Bitbucket | `http://localhost:8080/bitbucket-hook/` |
-| Generic Webhook Trigger | `http://localhost:8080/generic-webhook-trigger/invoke` |
+| **Enable** | Connect to Webhook Relay and start forwarding. |
+| **API Key / Secret** | Webhook Relay token credentials. Stored encrypted. |
+| **Bucket name** | Bucket(s) to subscribe to (comma-separated). Empty = all buckets. |
+| **SCM Webhook Preset** | Jenkins endpoint to deliver to: `github-webhook/`, `project/` (GitLab), `bitbucket-hook/`, `generic-webhook-trigger/invoke`, or Custom. |
 
-Make sure to set the output as **internal** so it's delivered through the WebSocket tunnel.
-
-#### 4. Configure the Jenkins Plugin
-
-1. Go to **Manage Jenkins** > **System**
-2. Find the **Webhook Relay** section
-3. Enter your **API Key** and **API Secret**
-4. Enter your **Bucket names** (comma-separated) or leave empty to subscribe to all
-5. Select the **SCM Webhook Preset** matching your setup
-6. Check **Enable** to activate the connection
-7. Click **Test Connection** to verify your credentials
-8. Save
-
-#### 5. Point Your SCM Webhooks to Webhook Relay
-
-In your GitHub/GitLab/Bitbucket repository settings, set the webhook URL to your Webhook Relay input endpoint URL instead of your Jenkins URL.
-
-## Response Logging
-
-The plugin automatically sends Jenkins' response back to Webhook Relay after forwarding each webhook. This means you can see the full request/response cycle in the [Webhook Relay logs dashboard](https://my.webhookrelay.com/logs), including:
-
-- HTTP status code from Jenkins
-- Response headers
-- Response body
-
-This is useful for debugging webhook delivery issues.
+> **Custom preset / internal outputs:** if you configure an *internal output* on the bucket
+> with a full `http://…` destination, the plugin honours that path instead of the preset.
 
 ## Troubleshooting
 
-- **Connection Status shows "Authentication Failed"**: Verify your API key and secret are correct
-- **Connection Status shows "Disconnected"**: The plugin will automatically reconnect with exponential backoff. Check Jenkins logs for details
-- **Webhooks not triggering builds**: Ensure your output destination matches the expected Jenkins webhook endpoint path. Check Jenkins logs for forwarding errors
-- **Response not showing in Webhook Relay logs**: Verify the webhook event has a valid `meta.id` field
+| Symptom | Fix |
+|---|---|
+| Status shows **Authentication Failed** | Check the API key/secret. |
+| Status shows **Disconnected** | The plugin reconnects automatically with backoff; check Jenkins logs. |
+| Webhook arrives but no build | Make sure the job's hook trigger is enabled and (for GitHub) the Git remote URL matches the pushed repo. |
+| Nothing in the bucket logs | Confirm the SCM is pointed at the bucket's public URL (the **Get Webhook URL** value). |
 
 ## Development
 
 ### Prerequisites
 
-- JDK 17 or 21 (JDK 25 has compatibility issues with Jenkins test harness)
+- JDK 17 or 21 (JDK 25 is not yet supported by the Jenkins test harness)
 - Maven 3.9+
 
 ```bash
-# macOS
-brew install openjdk@17 maven
-
-# Set JAVA_HOME
-export JAVA_HOME=/opt/homebrew/Cellar/openjdk@17/17.0.18/libexec/openjdk.jdk/Contents/Home
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)   # macOS
+mvn clean verify                                   # compile, test, SpotBugs, build the .hpi
+mvn hpi:run                                         # run Jenkins locally with the plugin
 ```
 
-### Building
-
-```bash
-mvn clean verify
-```
-
-This compiles, runs tests, checks SpotBugs, and produces `target/webhook-relay.hpi`.
-
-### Running Jenkins Locally with the Plugin
-
-```bash
-mvn hpi:run
-```
-
-This starts a local Jenkins instance at http://localhost:8080/jenkins/ with the plugin pre-installed. Any code changes to Jelly files are picked up on page refresh. Java changes require restarting `hpi:run`.
-
-### Local Development Workflow
-
-1. **Start Jenkins**: `mvn hpi:run`
-2. **Configure the plugin**: Go to http://localhost:8080/jenkins/manage/configure and scroll to "Webhook Relay"
-3. **Enter your Webhook Relay credentials** and select an SCM preset
-4. **Click Auto Setup** to create a bucket/input/output, or configure manually
-5. **Test with curl**: Send a test webhook to your Webhook Relay input URL:
-   ```bash
-   curl -X POST https://my.webhookrelay.com/v1/webhooks/YOUR_INPUT_ID \
-     -H "Content-Type: application/json" \
-     -d '{"ref":"refs/heads/main","repository":{"full_name":"test/repo"}}'
-   ```
-6. **Check Jenkins logs**: Look for `Forwarded webhook to ...` messages in the Jenkins console
-7. **Check Webhook Relay logs**: Go to https://my.webhookrelay.com/logs to see the request/response cycle
-
-### Running Tests Only
-
-```bash
-mvn test
-```
-
-### Debugging
-
-To run Jenkins in debug mode (remote debugger on port 8000):
-
-```bash
-mvnDebug hpi:run
-```
-
-Then attach your IDE debugger to `localhost:8000`.
-
-### Project Structure
+### Project structure
 
 ```
 src/main/java/com/webhookrelay/jenkins/
-  ConnectionManager.java      - WebSocket lifecycle, reconnect with backoff
-  ConnectionStatus.java        - Connection state enum
-  LogsUpdater.java            - PUT response data to Webhook Relay logs API
-  WebhookForwarder.java       - Forward webhooks to Jenkins via HTTP
-  WebhookRelayAPI.java        - REST API client (buckets, inputs, outputs)
-  WebhookRelayConnection.java - WebSocket client (TLS, callbacks)
-  WebhookRelayPlugin.java     - GlobalConfiguration, UI, auto-setup
-  model/
-    AuthMessage.java           - WebSocket auth message
-    ForwardResponse.java       - Jenkins response capture
-    SubscribeMessage.java      - WebSocket subscribe message
-    WebhookEvent.java          - Incoming webhook event POJO
-src/main/resources/.../config.jelly  - Manage Jenkins config UI
+  ConnectionManager.java      WebSocket lifecycle, reconnect with backoff
+  ConnectionStatus.java       Connection state enum
+  LogsUpdater.java            Report the Jenkins response back to the bucket log
+  WebhookForwarder.java       Replay the webhook against the Jenkins endpoint
+  WebhookRelayAPI.java        REST client (buckets, inputs, outputs)
+  WebhookRelayConnection.java WebSocket client (TLS, callbacks)
+  WebhookRelayPlugin.java     Global configuration, UI, bucket → URL lookup
+  model/                      JSON message POJOs
+demo/                         Docker + Configuration-as-Code demo
 ```
-
-## Publishing to plugins.jenkins.io
-
-1. Open a hosting request at [jenkins-infra/repository-permissions-updater](https://github.com/jenkins-infra/repository-permissions-updater)
-2. The Jenkins hosting team forks the repo into the `jenkinsci` org
-3. Add a `Jenkinsfile` with `buildPlugin()` for CI
-4. Release: `mvn release:prepare release:perform`
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).
