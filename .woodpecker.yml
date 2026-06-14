@@ -1,0 +1,14 @@
+# CI for the Webhook Relay Jenkins plugin.
+# Compiles the plugin, runs the unit tests + JenkinsRule integration tests and
+# SpotBugs, and builds target/webhook-relay.hpi (`mvn verify`).
+when:
+  - event: [push, pull_request, manual]
+
+steps:
+  - name: build-and-test
+    image: maven:3.9-eclipse-temurin-17
+    environment:
+      # Keep the Maven repository inside the workspace so it can be cached later.
+      MAVEN_OPTS: -Dmaven.repo.local=.m2/repository
+    commands:
+      - mvn -B -ntp clean verify
