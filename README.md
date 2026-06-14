@@ -107,7 +107,9 @@ bucket and the plugin:
 
 Every webhook is recorded on the bucket's [logs page](https://my.webhookrelay.com/buckets),
 including the response Jenkins returned. A `sent` status with a `200` response status means
-Jenkins accepted the webhook.
+Jenkins accepted the webhook. The plugin links straight to it — both in the **Get Webhook URL**
+result and as a **View bucket logs &amp; settings** link under the connection status — once the
+bucket has been resolved.
 
 ## Try it with Docker
 

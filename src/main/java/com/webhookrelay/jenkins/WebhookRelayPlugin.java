@@ -42,6 +42,7 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
     private transient ConnectionManager connectionManager;
     private transient volatile ConnectionStatus connectionStatus = ConnectionStatus.DISCONNECTED;
     private transient volatile String statusMessage = "";
+    private transient volatile String bucketId;
 
     public WebhookRelayPlugin() {
         load();
@@ -105,6 +106,22 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
 
     public String getStatusMessage() {
         return statusMessage;
+    }
+
+    /**
+     * The Webhook Relay dashboard URL for the connected bucket (logs and settings),
+     * or {@code null} until the bucket has been resolved (via Get Webhook URL or the
+     * first received webhook).
+     */
+    public String getBucketDetailsUrl() {
+        return (bucketId != null && !bucketId.isEmpty())
+                ? "https://my.webhookrelay.com/buckets/" + bucketId : null;
+    }
+
+    void setBucketId(String bucketId) {
+        if (bucketId != null && !bucketId.isEmpty()) {
+            this.bucketId = bucketId;
+        }
     }
 
     public String getWebhookEndpointPath() {
@@ -271,9 +288,12 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
                                 + "Add a public input at https://my.webhookrelay.com/buckets");
             }
 
+            setBucketId(bucket.id);
+
             String inputUrl = input.endpointUrl();
             String preset = (scmPreset == null || scmPreset.isEmpty()) ? "github" : scmPreset;
             String endpointPath = SCM_PRESETS.getOrDefault(preset, SCM_PRESETS.get("github"));
+            String bucketUrl = getBucketDetailsUrl();
             LOGGER.info("Resolved webhook URL for bucket '" + bucketName + "': " + inputUrl);
 
             return FormValidation.okWithMarkup(
@@ -281,7 +301,9 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
                             + " repository webhook settings:<br/><b>" + escape(inputUrl) + "</b><br/>"
                             + "Webhooks received here are forwarded to <code>"
                             + escape(endpointPath.isEmpty() ? "(custom)" : endpointPath)
-                            + "</code> on this Jenkins. Enable the connection and Save to start receiving them.");
+                            + "</code> on this Jenkins. Enable the connection and Save to start receiving them.<br/>"
+                            + "View this bucket's logs and settings: <a href=\"" + escape(bucketUrl)
+                            + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escape(bucketUrl) + "</a>");
         } catch (java.io.IOException e) {
             LOGGER.log(Level.WARNING, "Failed to resolve webhook URL", e);
             return FormValidation.error("Failed to resolve webhook URL: " + e.getMessage());

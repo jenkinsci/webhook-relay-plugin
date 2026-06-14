@@ -124,8 +124,14 @@ public class ConnectionManager {
                 handleStatusMessage(json);
             } else if ("webhook".equals(type)) {
                 WebhookEvent event = gson.fromJson(message, WebhookEvent.class);
-                LOGGER.info("Received webhook for bucket: " +
-                        (event.getMeta() != null ? event.getMeta().getBucketName() : "unknown"));
+                if (event.getMeta() != null) {
+                    LOGGER.info("Received webhook for bucket: " + event.getMeta().getBucketName());
+                    if (plugin != null) {
+                        plugin.setBucketId(event.getMeta().getBucketId());
+                    }
+                } else {
+                    LOGGER.info("Received webhook for bucket: unknown");
+                }
                 ForwardResponse response = forwarder.forward(event);
                 if (response != null) {
                     logsUpdater.sendUpdate(event, response);
