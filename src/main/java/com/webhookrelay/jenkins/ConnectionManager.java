@@ -30,6 +30,7 @@ public class ConnectionManager {
     private final List<String> buckets;
     private final WebhookForwarder forwarder;
     private final LogsUpdater logsUpdater;
+    private final WebhookRelayPlugin plugin;
     private final Gson gson = new Gson();
 
     private volatile WebhookRelayConnection connection;
@@ -39,7 +40,9 @@ public class ConnectionManager {
 
     private ScheduledExecutorService scheduler;
 
-    public ConnectionManager(String apiKey, String apiSecret, List<String> buckets, String endpointPath) {
+    public ConnectionManager(WebhookRelayPlugin plugin, String apiKey, String apiSecret,
+                             List<String> buckets, String endpointPath) {
+        this.plugin = plugin;
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
         this.buckets = buckets;
@@ -192,7 +195,10 @@ public class ConnectionManager {
     }
 
     private void updateStatus(ConnectionStatus status, String message) {
-        WebhookRelayPlugin plugin = WebhookRelayPlugin.get();
+        // Use the plugin reference captured at construction time rather than
+        // WebhookRelayPlugin.get(), which would re-enter Guice provisioning and
+        // cause a circular-dependency error when the connection is started from
+        // the plugin's constructor.
         if (plugin != null) {
             plugin.updateConnectionStatus(status, message);
         }

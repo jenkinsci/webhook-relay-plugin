@@ -5,3 +5,5 @@ git
 github
 workflow-aggregator
 generic-webhook-trigger
+# Runtime dependency of the Webhook Relay plugin (provides Gson).
+gson-api

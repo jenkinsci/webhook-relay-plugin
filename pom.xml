@@ -7,18 +7,19 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.86</version>
+        <version>6.2189.v695a_c41f5249</version>
         <relativePath />
     </parent>
 
     <groupId>io.jenkins.plugins</groupId>
     <artifactId>webhook-relay</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>${changelist}</version>
     <packaging>hpi</packaging>
 
     <name>Webhook Relay</name>
-    <description>Receives webhooks via Webhook Relay WebSocket tunnel and forwards them to Jenkins.
-        Enables GitHub, GitLab, and Bitbucket webhook integration without exposing Jenkins to the public internet.</description>
+    <description>Receives webhooks through a Webhook Relay bucket and forwards them to Jenkins over an
+        outbound connection. Enables GitHub, GitLab, and Bitbucket webhook integration without exposing
+        Jenkins to the public internet, while keeping every delivery visible on the bucket's logs page.</description>
     <url>https://github.com/jenkinsci/webhook-relay-plugin</url>
 
     <licenses>
@@ -28,38 +29,34 @@
         </license>
     </licenses>
 
-    <developers>
-        <developer>
-            <id>webhookrelay</id>
-            <name>Webhook Relay</name>
-            <email>info@webhookrelay.com</email>
-        </developer>
-    </developers>
-
     <scm>
         <connection>scm:git:https://github.com/jenkinsci/webhook-relay-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/webhook-relay-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/webhook-relay-plugin</url>
-        <tag>HEAD</tag>
+        <tag>${scmTag}</tag>
     </scm>
 
     <properties>
-        <jenkins.version>2.479.1</jenkins.version>
+        <changelist>999999-SNAPSHOT</changelist>
+        <jenkins.baseline>2.528</jenkins.baseline>
+        <jenkins.version>${jenkins.baseline}.3</jenkins.version>
+        <gitHubRepo>jenkinsci/webhook-relay-plugin</gitHubRepo>
+        <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
+        <!-- Java-WebSocket is a third-party library with no Jenkins API plugin; it is
+             bundled into the .hpi. slf4j-api is provided by Jenkins core (excluded below). -->
+        <hpi.bundledArtifacts>Java-WebSocket</hpi.bundledArtifacts>
+        <ban-deprecated-stapler.skip>false</ban-deprecated-stapler.skip>
+        <ban-commons-lang-2.skip>false</ban-commons-lang-2.skip>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.479.x</artifactId>
-                <version>5054.v620b_5d2b_d5e6</version>
+                <artifactId>bom-${jenkins.baseline}.x</artifactId>
+                <version>6585.va_085f4d47c41</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>com.google.errorprone</groupId>
-                <artifactId>error_prone_annotations</artifactId>
-                <version>2.27.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -70,13 +67,19 @@
             <groupId>org.java-websocket</groupId>
             <artifactId>Java-WebSocket</artifactId>
             <version>1.5.7</version>
+            <exclusions>
+                <!-- slf4j-api is provided by Jenkins core; don't bundle it. -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
-        <!-- JSON serialization -->
+        <!-- JSON serialization (Gson, provided via the gson-api Jenkins plugin) -->
         <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.11.0</version>
+            <groupId>io.jenkins.plugins</groupId>
+            <artifactId>gson-api</artifactId>
         </dependency>
 
         <!-- Jenkins plugin dependencies -->

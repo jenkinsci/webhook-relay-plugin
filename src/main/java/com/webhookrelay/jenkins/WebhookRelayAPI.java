@@ -3,7 +3,6 @@ package com.webhookrelay.jenkins;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -139,8 +138,6 @@ public class WebhookRelayAPI {
         }
     }
 
-    @SuppressFBWarnings(value = {"UWF_UNWRITTEN_FIELD", "URF_UNREAD_FIELD"},
-            justification = "Fields populated/serialized by Gson")
     public static class Bucket {
         public String id;
         public String name;
@@ -164,8 +161,6 @@ public class WebhookRelayAPI {
         }
     }
 
-    @SuppressFBWarnings(value = {"UWF_UNWRITTEN_FIELD", "URF_UNREAD_FIELD"},
-            justification = "Fields populated/serialized by Gson")
     public static class Input {
         public String id;
         public String name;
@@ -189,8 +184,6 @@ public class WebhookRelayAPI {
         }
     }
 
-    @SuppressFBWarnings(value = {"UWF_UNWRITTEN_FIELD", "URF_UNREAD_FIELD"},
-            justification = "Fields populated/serialized by Gson")
     public static class Output {
         public String id;
         public String name;

@@ -326,6 +326,7 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         }
         LOGGER.info("Starting Webhook Relay connection");
         connectionManager = new ConnectionManager(
+                this,
                 Secret.toString(apiKey),
                 Secret.toString(apiSecret),
                 parseBuckets(),
