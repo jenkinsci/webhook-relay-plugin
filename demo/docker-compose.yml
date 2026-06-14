@@ -1,0 +1,26 @@
+# Spin up a demo Jenkins with the Webhook Relay plugin's dependencies pre-installed.
+#
+#   1. Build the plugin:   (from repo root) mvn -q clean package
+#   2. Start Jenkins:      docker compose -f demo/docker-compose.yml up --build
+#   3. Open:               http://localhost:8095  (admin / admin)
+#   4. Install the plugin: Manage Jenkins > Plugins > Advanced > Deploy Plugin
+#                          and upload ../target/webhook-relay.hpi
+#
+# GITHUB_USER / GITHUB_TOKEN are only needed to clone a private demo repository.
+services:
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webhookrelay-jenkins-demo
+    ports:
+      - "8095:8080"
+      - "50000:50000"
+    environment:
+      GITHUB_USER: "${GITHUB_USER:-}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+
+volumes:
+  jenkins_home:

@@ -1,0 +1,29 @@
+jenkins:
+  systemMessage: "Webhook Relay plugin demo — receive GitHub/GitLab/Bitbucket webhooks without exposing Jenkins."
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: admin
+          password: admin
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+unclassified:
+  location:
+    # Internal URL the plugin uses to deliver webhooks back to this Jenkins.
+    # Inside the container Jenkins listens on 8080, so the plugin POSTs to itself.
+    url: http://localhost:8080/
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: github-token
+              username: "${GITHUB_USER}"
+              password: "${GITHUB_TOKEN}"
+              description: "GitHub token for cloning the demo repository"

@@ -4,7 +4,7 @@
   <f:section title="Webhook Relay">
 
     <f:entry title="Enable" field="enabled"
-             description="Enable or disable the Webhook Relay WebSocket connection">
+             description="Connect to Webhook Relay and start forwarding webhooks to Jenkins">
       <f:checkbox />
     </f:entry>
 
@@ -18,13 +18,13 @@
       <f:password />
     </f:entry>
 
-    <f:entry title="Buckets" field="buckets"
-             description="Comma-separated list of bucket names to subscribe to. Leave empty to subscribe to all buckets.">
+    <f:entry title="Bucket name" field="buckets"
+             description="The name of the Webhook Relay bucket to receive webhooks from (e.g. jenkins-plugin). You can list several, comma-separated, or leave empty to subscribe to every bucket in your account. Manage buckets at https://my.webhookrelay.com/buckets">
       <f:textbox />
     </f:entry>
 
     <f:entry title="SCM Webhook Preset" field="scmPreset"
-             description="Select your SCM provider to configure the correct webhook endpoint path. This determines where received webhooks are forwarded inside Jenkins.">
+             description="Select your SCM provider so the plugin delivers received webhooks to the correct Jenkins endpoint (e.g. github-webhook/). Choose Custom to use an internal output destination configured on the bucket.">
       <f:select />
     </f:entry>
 
@@ -66,11 +66,11 @@
                         with="apiKey,apiSecret,buckets" />
     </f:entry>
 
-    <f:entry title="Quick Setup"
-             description="Automatically create a Webhook Relay bucket, input, and output for the selected SCM preset. The output will point to your Jenkins webhook endpoint.">
-      <f:validateButton title="Auto Setup" progress="Setting up..."
-                        method="autoSetup"
-                        with="apiKey,apiSecret,scmPreset" />
+    <f:entry title="Webhook URL"
+             description="Resolve the public webhook URL for the bucket above (creating the bucket if needed), then paste it into your GitHub/GitLab/Bitbucket repository webhook settings.">
+      <f:validateButton title="Get Webhook URL" progress="Resolving..."
+                        method="getWebhookUrl"
+                        with="apiKey,apiSecret,buckets,scmPreset" />
     </f:entry>
 
   </f:section>

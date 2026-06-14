@@ -39,11 +39,11 @@ public class ConnectionManager {
 
     private ScheduledExecutorService scheduler;
 
-    public ConnectionManager(String apiKey, String apiSecret, List<String> buckets) {
+    public ConnectionManager(String apiKey, String apiSecret, List<String> buckets, String endpointPath) {
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
         this.buckets = buckets;
-        this.forwarder = new WebhookForwarder();
+        this.forwarder = new WebhookForwarder(endpointPath);
         this.logsUpdater = new LogsUpdater(apiKey, apiSecret);
     }
 

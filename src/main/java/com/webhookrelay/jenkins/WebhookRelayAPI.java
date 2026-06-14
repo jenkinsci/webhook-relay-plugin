@@ -21,6 +21,7 @@ public class WebhookRelayAPI {
 
     private static final Logger LOGGER = Logger.getLogger(WebhookRelayAPI.class.getName());
     private static final String API_BASE = "https://my.webhookrelay.com/v1";
+    static final String PUBLIC_WEBHOOK_BASE = "https://my.webhookrelay.com/v1/webhooks/";
     private static final int CONNECT_TIMEOUT_MS = 10000;
     private static final int READ_TIMEOUT_MS = 30000;
 
@@ -36,6 +37,37 @@ public class WebhookRelayAPI {
     public List<Bucket> listBuckets() throws IOException {
         String response = doRequest("GET", "/buckets", null);
         return gson.fromJson(response, new TypeToken<List<Bucket>>() {}.getType());
+    }
+
+    public Bucket getBucket(String idOrName) throws IOException {
+        String response = doRequest("GET", "/buckets/" + idOrName, null);
+        return gson.fromJson(response, Bucket.class);
+    }
+
+    /**
+     * Returns the bucket matching the given name (or id), or {@code null} if none exists.
+     */
+    public Bucket findBucketByName(String name) throws IOException {
+        for (Bucket bucket : listBuckets()) {
+            if (name.equals(bucket.name) || name.equals(bucket.id)) {
+                return bucket;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Finds an existing bucket by name, creating it (with its default public input)
+     * if it does not exist. The returned bucket is always re-fetched so that the
+     * auto-created input (and its public endpoint URL) is populated.
+     */
+    public Bucket findOrCreateBucket(String name) throws IOException {
+        Bucket bucket = findBucketByName(name);
+        if (bucket == null) {
+            bucket = createBucket(name);
+        }
+        // Re-fetch to ensure inputs (and their custom domains) are populated.
+        return getBucket(bucket.id);
     }
 
     public Bucket createBucket(String name) throws IOException {
@@ -114,6 +146,22 @@ public class WebhookRelayAPI {
         public String name;
         public List<Input> inputs;
         public List<Output> outputs;
+
+        /**
+         * Returns the input to advertise as the public webhook endpoint, preferring
+         * one that already has a dedicated {@code *.hooks.webhookrelay.com} domain.
+         */
+        public Input primaryInput() {
+            if (inputs == null || inputs.isEmpty()) {
+                return null;
+            }
+            for (Input input : inputs) {
+                if (input.customDomain != null && !input.customDomain.isEmpty()) {
+                    return input;
+                }
+            }
+            return inputs.get(0);
+        }
     }
 
     @SuppressFBWarnings(value = {"UWF_UNWRITTEN_FIELD", "URF_UNREAD_FIELD"},
@@ -123,6 +171,22 @@ public class WebhookRelayAPI {
         public String name;
         @SerializedName("bucket_id")
         public String bucketId;
+        @SerializedName("custom_domain")
+        public String customDomain;
+        @SerializedName("path_prefix")
+        public String pathPrefix;
+
+        /**
+         * The public webhook URL to paste into your SCM provider. Prefers the
+         * dedicated {@code *.hooks.webhookrelay.com} domain when available, falling
+         * back to the canonical {@code /v1/webhooks/<id>} endpoint.
+         */
+        public String endpointUrl() {
+            if (customDomain != null && !customDomain.isEmpty()) {
+                return "https://" + customDomain + (pathPrefix != null ? pathPrefix : "");
+            }
+            return PUBLIC_WEBHOOK_BASE + id;
+        }
     }
 
     @SuppressFBWarnings(value = {"UWF_UNWRITTEN_FIELD", "URF_UNREAD_FIELD"},

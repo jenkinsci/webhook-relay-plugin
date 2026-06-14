@@ -5,7 +5,6 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import jenkins.model.GlobalConfiguration;
-import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -236,12 +235,16 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
     }
 
     /**
-     * Creates a Webhook Relay bucket with an input and an output pointing
-     * at the selected SCM webhook endpoint on this Jenkins instance.
+     * Looks up the named Webhook Relay bucket (creating it with its default public
+     * input if it does not exist) and returns the public webhook URL to paste into
+     * the SCM provider's webhook settings. The bucket is left without outputs so that
+     * webhooks stream over the socket to this plugin and every request is recorded on
+     * the bucket's logs page.
      */
-    public FormValidation doAutoSetup(
+    public FormValidation doGetWebhookUrl(
             @QueryParameter("apiKey") Secret apiKey,
             @QueryParameter("apiSecret") Secret apiSecret,
+            @QueryParameter("buckets") String buckets,
             @QueryParameter("scmPreset") String scmPreset) {
 
         if (apiKey == null || Secret.toString(apiKey).isEmpty()) {
@@ -250,50 +253,56 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         if (apiSecret == null || Secret.toString(apiSecret).isEmpty()) {
             return FormValidation.error("API Secret is required");
         }
-        if (scmPreset == null || scmPreset.isEmpty() || "custom".equals(scmPreset)) {
-            return FormValidation.error("Select an SCM preset (not Custom) to auto-setup");
-        }
 
-        String endpointPath = SCM_PRESETS.get(scmPreset);
-        if (endpointPath == null || endpointPath.isEmpty()) {
-            return FormValidation.error("Unknown SCM preset: " + scmPreset);
+        String bucketName = firstBucketName(buckets);
+        if (bucketName == null) {
+            return FormValidation.error("Enter a bucket name first");
         }
 
         try {
             WebhookRelayAPI api = new WebhookRelayAPI(
                     Secret.toString(apiKey), Secret.toString(apiSecret));
 
-            String bucketName = "jenkins-" + scmPreset;
-            WebhookRelayAPI.Bucket bucket = api.createBucket(bucketName);
-            LOGGER.info("Created bucket: " + bucket.name + " (id: " + bucket.id + ")");
-
-            WebhookRelayAPI.Input input = api.createInput(bucket.id, scmPreset + "-input");
-            LOGGER.info("Created input: " + input.name + " (id: " + input.id + ")");
-
-            String rootUrl = Jenkins.get().getRootUrl();
-            if (rootUrl == null) {
-                rootUrl = "http://localhost:8080/";
+            WebhookRelayAPI.Bucket bucket = api.findOrCreateBucket(bucketName);
+            WebhookRelayAPI.Input input = bucket.primaryInput();
+            if (input == null) {
+                return FormValidation.error(
+                        "Bucket '" + bucketName + "' has no input endpoint. "
+                                + "Add a public input at https://my.webhookrelay.com/buckets");
             }
-            if (!rootUrl.endsWith("/")) {
-                rootUrl += "/";
-            }
-            String destination = rootUrl + endpointPath;
 
-            WebhookRelayAPI.Output output = api.createOutput(
-                    bucket.id, scmPreset + "-to-jenkins", destination);
-            LOGGER.info("Created output: " + output.name + " -> " + destination);
+            String inputUrl = input.endpointUrl();
+            String preset = (scmPreset == null || scmPreset.isEmpty()) ? "github" : scmPreset;
+            String endpointPath = SCM_PRESETS.getOrDefault(preset, SCM_PRESETS.get("github"));
+            LOGGER.info("Resolved webhook URL for bucket '" + bucketName + "': " + inputUrl);
 
-            String inputUrl = "https://my.webhookrelay.com/v1/webhooks/" + input.id;
-
-            return FormValidation.ok(
-                    "Setup complete! Bucket: " + bucketName
-                            + ". Use this webhook URL in your " + scmPreset
-                            + " repository settings: " + inputUrl
-                            + " (output destination: " + destination + ")");
+            return FormValidation.okWithMarkup(
+                    "Paste this webhook URL into your " + escape(preset)
+                            + " repository webhook settings:<br/><b>" + escape(inputUrl) + "</b><br/>"
+                            + "Webhooks received here are forwarded to <code>"
+                            + escape(endpointPath.isEmpty() ? "(custom)" : endpointPath)
+                            + "</code> on this Jenkins. Enable the connection and Save to start receiving them.");
         } catch (java.io.IOException e) {
-            LOGGER.log(Level.WARNING, "Auto-setup failed", e);
-            return FormValidation.error("Auto-setup failed: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "Failed to resolve webhook URL", e);
+            return FormValidation.error("Failed to resolve webhook URL: " + e.getMessage());
         }
+    }
+
+    private static String escape(String value) {
+        return hudson.Util.escape(value);
+    }
+
+    private String firstBucketName(String buckets) {
+        if (buckets == null) {
+            return null;
+        }
+        for (String part : buckets.split(",")) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                return trimmed;
+            }
+        }
+        return null;
     }
 
     private boolean isConfigured() {
@@ -319,7 +328,8 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         connectionManager = new ConnectionManager(
                 Secret.toString(apiKey),
                 Secret.toString(apiSecret),
-                parseBuckets()
+                parseBuckets(),
+                getWebhookEndpointPath()
         );
         connectionManager.start();
     }

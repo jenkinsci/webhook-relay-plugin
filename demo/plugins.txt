@@ -1,0 +1,7 @@
+# Plugins pre-installed in the demo Jenkins image. jenkins-plugin-cli resolves
+# transitive dependencies automatically.
+configuration-as-code
+git
+github
+workflow-aggregator
+generic-webhook-trigger

@@ -47,12 +47,16 @@ public class LogsUpdater {
                         response.getBody().getBytes(StandardCharsets.UTF_8));
             }
 
+            String status = response.getStatusCode() > 0 && response.getStatusCode() < 400
+                    ? "sent" : "failed";
+
             LogPayload payload = new LogPayload(
                     logId,
                     bucketId,
                     encodedBody,
                     response.getStatusCode(),
-                    response.getHeaders()
+                    response.getHeaders(),
+                    status
             );
 
             String jsonPayload = gson.toJson(payload);
@@ -99,14 +103,16 @@ public class LogsUpdater {
         private final int statusCode;
         @SerializedName("response_headers")
         private final Map<String, String> responseHeaders;
+        private final String status;
 
         LogPayload(String id, String bucketId, String responseBody,
-                   int statusCode, Map<String, String> responseHeaders) {
+                   int statusCode, Map<String, String> responseHeaders, String status) {
             this.id = id;
             this.bucketId = bucketId;
             this.responseBody = responseBody;
             this.statusCode = statusCode;
             this.responseHeaders = responseHeaders;
+            this.status = status;
         }
     }
 }

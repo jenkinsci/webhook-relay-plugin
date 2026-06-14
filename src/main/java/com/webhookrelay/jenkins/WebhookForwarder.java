@@ -33,6 +33,25 @@ public class WebhookForwarder {
     ));
 
     /**
+     * The Jenkins webhook endpoint path (e.g. "github-webhook/") to deliver to
+     * when the bucket has no explicit internal output configured. Webhook Relay
+     * delivers webhooks over the socket whenever a bucket has no outputs, in which
+     * case the event's {@code output_destination} reflects the inbound request path
+     * rather than a Jenkins URL, so we route based on the configured SCM preset.
+     */
+    private final String defaultEndpointPath;
+
+    public WebhookForwarder() {
+        this("generic-webhook-trigger/invoke");
+    }
+
+    public WebhookForwarder(String defaultEndpointPath) {
+        this.defaultEndpointPath = (defaultEndpointPath == null || defaultEndpointPath.isEmpty())
+                ? "generic-webhook-trigger/invoke"
+                : defaultEndpointPath;
+    }
+
+    /**
      * Forwards the webhook event to Jenkins and returns the response.
      * Returns null if the forward could not be performed.
      */
@@ -64,9 +83,15 @@ public class WebhookForwarder {
             conn.setReadTimeout(READ_TIMEOUT_MS);
 
             if (event.getHeaders() != null) {
-                for (Map.Entry<String, String> header : event.getHeaders().entrySet()) {
-                    if (!SKIP_HEADERS.contains(header.getKey().toLowerCase())) {
-                        conn.setRequestProperty(header.getKey(), header.getValue());
+                for (Map.Entry<String, List<String>> header : event.getHeaders().entrySet()) {
+                    if (header.getKey() == null || header.getValue() == null
+                            || SKIP_HEADERS.contains(header.getKey().toLowerCase())) {
+                        continue;
+                    }
+                    for (String value : header.getValue()) {
+                        if (value != null) {
+                            conn.addRequestProperty(header.getKey(), value);
+                        }
                     }
                 }
             }
@@ -127,10 +152,19 @@ public class WebhookForwarder {
         return headers;
     }
 
+    /**
+     * Determines the Jenkins endpoint path to deliver the webhook to.
+     *
+     * <p>When the bucket has an explicit <b>internal output</b> configured, its
+     * destination is a full URL (e.g. {@code http://jenkins:8080/github-webhook/})
+     * and we honour the path from it. When the bucket has no outputs, Webhook Relay
+     * still streams the webhook over the socket but {@code output_destination} holds
+     * the inbound request path (e.g. {@code /}), so we route based on the configured
+     * SCM preset instead.
+     */
     String determineDestination(WebhookEvent event) {
         if (event.getMeta() != null
-                && event.getMeta().getOutputDestination() != null
-                && !event.getMeta().getOutputDestination().isEmpty()) {
+                && event.getMeta().getOutputDestination() != null) {
 
             String dest = event.getMeta().getOutputDestination();
 
@@ -144,15 +178,17 @@ public class WebhookForwarder {
                 } catch (MalformedURLException e) {
                     LOGGER.fine("Could not parse output destination as URL, using as path: " + dest);
                 }
+                if (dest.startsWith("/")) {
+                    dest = dest.substring(1);
+                }
+                if (!dest.isEmpty()) {
+                    return dest;
+                }
             }
-
-            if (dest.startsWith("/")) {
-                dest = dest.substring(1);
-            }
-            return dest;
         }
 
-        return "generic-webhook-trigger/invoke";
+        // No explicit internal output: deliver to the configured SCM endpoint.
+        return defaultEndpointPath;
     }
 
     protected String getRootUrl() {

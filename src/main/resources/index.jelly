@@ -1,5 +1,7 @@
 <?jelly escape-by-default='true'?>
 <div>
-  Receives webhooks via Webhook Relay WebSocket tunnel and forwards them to Jenkins.
-  Enables GitHub, GitLab, and Bitbucket webhook integration without exposing Jenkins to the public internet.
+  Receives webhooks through a Webhook Relay bucket and forwards them to Jenkins over an
+  outbound connection. Enables GitHub, GitLab, and Bitbucket webhook integration without
+  exposing Jenkins to the public internet, while keeping every delivery visible on the
+  bucket's logs page.
 </div>

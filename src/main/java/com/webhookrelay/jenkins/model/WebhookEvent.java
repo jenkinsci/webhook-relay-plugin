@@ -3,6 +3,7 @@ package com.webhookrelay.jenkins.model;
 import com.google.gson.annotations.SerializedName;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+import java.util.List;
 import java.util.Map;
 
 @SuppressFBWarnings(value = "UWF_UNWRITTEN_FIELD", justification = "Fields are populated by Gson deserialization")
@@ -10,7 +11,9 @@ public class WebhookEvent {
     private String type;
     private String status;
     private Meta meta;
-    private Map<String, String> headers;
+    // Webhook Relay sends headers as a map of header name to a list of values,
+    // e.g. {"Content-Type": ["application/json"]}.
+    private Map<String, List<String>> headers;
     private String query;
     private String body;
     private String method;
@@ -27,7 +30,7 @@ public class WebhookEvent {
         return meta;
     }
 
-    public Map<String, String> getHeaders() {
+    public Map<String, List<String>> getHeaders() {
         return headers;
     }
 
