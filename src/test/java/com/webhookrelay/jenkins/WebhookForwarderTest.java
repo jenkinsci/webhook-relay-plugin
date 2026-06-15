@@ -2,13 +2,14 @@ package com.webhookrelay.jenkins;
 
 import com.webhookrelay.jenkins.model.WebhookEvent;
 import com.google.gson.Gson;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class WebhookForwarderTest {
+class WebhookForwarderTest {
 
     private final Gson gson = new Gson();
 

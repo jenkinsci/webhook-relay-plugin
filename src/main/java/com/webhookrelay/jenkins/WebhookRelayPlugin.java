@@ -160,10 +160,13 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         return true;
     }
 
+    @POST
     public FormValidation doTestConnection(
             @QueryParameter("apiKey") Secret apiKey,
             @QueryParameter("apiSecret") Secret apiSecret,
             @QueryParameter("buckets") String buckets) {
+
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
         if (apiKey == null || Secret.toString(apiKey).isEmpty()) {
             return FormValidation.error("API Key is required");
@@ -182,9 +185,10 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
                 @Override
                 public void onOpen(org.java_websocket.handshake.ServerHandshake handshake) {
                     com.google.gson.Gson gson = new com.google.gson.Gson();
-                    com.webhookrelay.jenkins.model.AuthMessage auth =
-                            new com.webhookrelay.jenkins.model.AuthMessage(
-                                    Secret.toString(apiKey), Secret.toString(apiSecret));
+                    com.google.gson.JsonObject auth = new com.google.gson.JsonObject();
+                    auth.addProperty("action", "auth");
+                    auth.addProperty("key", Secret.toString(apiKey));
+                    auth.addProperty("secret", Secret.toString(apiSecret));
                     send(gson.toJson(auth));
                 }
 
@@ -290,8 +294,7 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         }
 
         try {
-            WebhookRelayAPI api = new WebhookRelayAPI(
-                    Secret.toString(apiKey), Secret.toString(apiSecret));
+            WebhookRelayAPI api = new WebhookRelayAPI(apiKey, apiSecret);
 
             WebhookRelayAPI.Bucket bucket = api.findOrCreateBucket(bucketName);
             WebhookRelayAPI.Input input = bucket.primaryInput();
@@ -355,8 +358,8 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         LOGGER.info("Starting Webhook Relay connection");
         connectionManager = new ConnectionManager(
                 this,
-                Secret.toString(apiKey),
-                Secret.toString(apiSecret),
+                apiKey,
+                apiSecret,
                 parseBuckets(),
                 getWebhookEndpointPath()
         );

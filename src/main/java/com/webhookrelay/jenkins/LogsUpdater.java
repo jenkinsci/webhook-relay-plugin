@@ -5,6 +5,7 @@ import com.google.gson.annotations.SerializedName;
 import com.webhookrelay.jenkins.model.ForwardResponse;
 import com.webhookrelay.jenkins.model.WebhookEvent;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.util.Secret;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,14 +23,14 @@ public class LogsUpdater {
     private static final Logger LOGGER = Logger.getLogger(LogsUpdater.class.getName());
     private static final String LOGS_API_BASE = "https://my.webhookrelay.com/v1/logs/";
 
-    private final String apiKey;
-    private final String apiSecret;
+    private final Secret apiKey;
+    private final Secret apiSecret;
     private final Gson gson = new Gson();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-    public LogsUpdater(String apiKey, String apiSecret) {
+    public LogsUpdater(Secret apiKey, Secret apiSecret) {
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
     }
@@ -64,7 +65,7 @@ public class LogsUpdater {
 
             String jsonPayload = gson.toJson(payload);
 
-            String credentials = apiKey + ":" + apiSecret;
+            String credentials = Secret.toString(apiKey) + ":" + Secret.toString(apiSecret);
             String basicAuth = "Basic " + Base64.getEncoder().encodeToString(
                     credentials.getBytes(StandardCharsets.UTF_8));
 

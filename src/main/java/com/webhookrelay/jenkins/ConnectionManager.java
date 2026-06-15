@@ -3,10 +3,10 @@ package com.webhookrelay.jenkins;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.webhookrelay.jenkins.model.AuthMessage;
 import com.webhookrelay.jenkins.model.ForwardResponse;
 import com.webhookrelay.jenkins.model.SubscribeMessage;
 import com.webhookrelay.jenkins.model.WebhookEvent;
+import hudson.util.Secret;
 
 import java.net.URI;
 import java.util.List;
@@ -25,8 +25,8 @@ public class ConnectionManager {
     private static final long MAX_BACKOFF_MS = 5 * 60 * 1000;
     private static final double BACKOFF_MULTIPLIER = 2.0;
 
-    private final String apiKey;
-    private final String apiSecret;
+    private final Secret apiKey;
+    private final Secret apiSecret;
     private final List<String> buckets;
     private final WebhookForwarder forwarder;
     private final LogsUpdater logsUpdater;
@@ -40,7 +40,7 @@ public class ConnectionManager {
 
     private ScheduledExecutorService scheduler;
 
-    public ConnectionManager(WebhookRelayPlugin plugin, String apiKey, String apiSecret,
+    public ConnectionManager(WebhookRelayPlugin plugin, Secret apiKey, Secret apiSecret,
                              List<String> buckets, String endpointPath) {
         this.plugin = plugin;
         this.apiKey = apiKey;
@@ -110,7 +110,10 @@ public class ConnectionManager {
         currentBackoff = INITIAL_BACKOFF_MS;
         updateStatus(ConnectionStatus.CONNECTED, "");
 
-        AuthMessage auth = new AuthMessage(apiKey, apiSecret);
+        JsonObject auth = new JsonObject();
+        auth.addProperty("action", "auth");
+        auth.addProperty("key", Secret.toString(apiKey));
+        auth.addProperty("secret", Secret.toString(apiSecret));
         connection.send(gson.toJson(auth));
     }
 

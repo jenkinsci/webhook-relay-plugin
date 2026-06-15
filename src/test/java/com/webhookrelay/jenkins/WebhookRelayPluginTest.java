@@ -1,21 +1,22 @@
 package com.webhookrelay.jenkins;
 
 import hudson.util.Secret;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class WebhookRelayPluginTest {
-
-    @Rule
-    public JenkinsRule jenkins = new JenkinsRule();
+@WithJenkins
+class WebhookRelayPluginTest {
 
     @Test
-    public void testConfigurationRoundTrip() throws Exception {
+    void testConfigurationRoundTrip(JenkinsRule jenkins) throws Exception {
         WebhookRelayPlugin plugin = WebhookRelayPlugin.get();
-        assertNotNull("Plugin should be loaded", plugin);
+        assertNotNull(plugin, "Plugin should be loaded");
 
         plugin.setApiKey(Secret.fromString("test-key"));
         plugin.setApiSecret(Secret.fromString("test-secret"));
@@ -32,17 +33,17 @@ public class WebhookRelayPluginTest {
     }
 
     @Test
-    public void testDefaultValues() {
+    void testDefaultValues(JenkinsRule jenkins) {
         WebhookRelayPlugin plugin = WebhookRelayPlugin.get();
         assertNotNull(plugin);
 
-        assertTrue("Should be enabled by default", plugin.isEnabled());
+        assertTrue(plugin.isEnabled(), "Should be enabled by default");
         assertEquals(ConnectionStatus.DISCONNECTED, plugin.getConnectionStatus());
         assertEquals("", plugin.getStatusMessage());
     }
 
     @Test
-    public void testConnectionStatusUpdate() {
+    void testConnectionStatusUpdate(JenkinsRule jenkins) {
         WebhookRelayPlugin plugin = WebhookRelayPlugin.get();
         assertNotNull(plugin);
 

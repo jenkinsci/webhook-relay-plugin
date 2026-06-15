@@ -3,6 +3,7 @@ package com.webhookrelay.jenkins;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
+import hudson.util.Secret;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,14 +22,14 @@ public class WebhookRelayAPI {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
-    private final String apiKey;
-    private final String apiSecret;
+    private final Secret apiKey;
+    private final Secret apiSecret;
     private final Gson gson = new Gson();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(CONNECT_TIMEOUT)
             .build();
 
-    public WebhookRelayAPI(String apiKey, String apiSecret) {
+    public WebhookRelayAPI(Secret apiKey, Secret apiSecret) {
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
     }
@@ -93,7 +94,7 @@ public class WebhookRelayAPI {
     }
 
     private String doRequest(String method, String path, String body) throws IOException {
-        String credentials = apiKey + ":" + apiSecret;
+        String credentials = Secret.toString(apiKey) + ":" + Secret.toString(apiSecret);
         String basicAuth = "Basic " + Base64.getEncoder().encodeToString(
                 credentials.getBytes(StandardCharsets.UTF_8));
 
