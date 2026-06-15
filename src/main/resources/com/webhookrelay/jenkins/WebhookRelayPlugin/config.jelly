@@ -85,26 +85,28 @@
 
     </f:optionalBlock>
 
-    <dialog class="jenkins-dialog" id="webhook-relay-url-dialog" style="max-width:640px;">
-      <div class="jenkins-dialog__title" style="font-weight:600; margin-bottom:.5rem;">Webhook URL</div>
-      <div class="jenkins-dialog__contents">
-        <p>Paste this URL into your GitHub/GitLab/Bitbucket repository webhook settings:</p>
-        <div style="display:flex; gap:.5rem; align-items:center;">
-          <code id="webhook-relay-url-value" class="jenkins-input"
-                style="flex:1; padding:.4rem .6rem; overflow-wrap:anywhere; user-select:all;"></code>
-          <l:copyButton ref="webhook-relay-url-value" text=""
-                        message="Webhook URL copied" tooltip="Copy webhook URL" />
-        </div>
-        <p id="webhook-relay-url-note" class="jenkins-!-margin-top-2"></p>
-        <p>
-          <a id="webhook-relay-url-bucket" href="#" target="_blank" rel="noopener noreferrer"
-             style="display:none;">
-            <l:icon src="symbol-open-outline plugin-ionicons-api" class="icon-sm" />
-            View bucket logs &amp; settings in Webhook Relay
-          </a>
-        </p>
+    <!-- Plain native dialog: do NOT use the .jenkins-dialog class, which forces
+         display:flex and would keep the dialog visible after dialog.close(). -->
+    <dialog id="webhook-relay-url-dialog"
+            style="max-width:640px; border:none; border-radius:1rem; padding:1.5rem;
+                   box-shadow:0 10px 40px rgba(0,0,0,.3);">
+      <h2 style="margin:0 0 .75rem; font-size:1.1rem;">Webhook URL</h2>
+      <p>Paste this URL into your GitHub/GitLab/Bitbucket repository webhook settings:</p>
+      <div style="display:flex; gap:.5rem; align-items:center;">
+        <code id="webhook-relay-url-value" class="jenkins-input"
+              style="flex:1; padding:.4rem .6rem; overflow-wrap:anywhere; user-select:all;"></code>
+        <l:copyButton ref="webhook-relay-url-value" text=""
+                      message="Webhook URL copied" tooltip="Copy webhook URL" />
       </div>
-      <div class="jenkins-dialog__buttons jenkins-!-margin-top-2">
+      <p id="webhook-relay-url-note" style="margin-top:1rem;"></p>
+      <p>
+        <a id="webhook-relay-url-bucket" href="#" target="_blank" rel="noopener noreferrer"
+           style="display:none;">
+          <l:icon src="symbol-open-outline plugin-ionicons-api" class="icon-sm" />
+          View bucket logs &amp; settings in Webhook Relay
+        </a>
+      </p>
+      <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
         <button type="button" class="jenkins-button jenkins-button--primary"
                 id="webhook-relay-url-close">Close</button>
       </div>
