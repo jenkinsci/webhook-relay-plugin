@@ -1,5 +1,5 @@
-// Resolves the Webhook Relay webhook URL for the configured bucket and shows it
-// in a dialog with a copy button, instead of rendering inline form-validation markup.
+// Resolves the Webhook Relay webhook URL for the configured bucket and shows it in a
+// Jenkins dialog with a copy button, instead of rendering inline form-validation markup.
 (function () {
     function init() {
         var btn = document.getElementById("webhook-relay-resolve-btn");
@@ -7,20 +7,10 @@
             return;
         }
         btn.dataset.bound = "true";
-
-        var dialog = document.getElementById("webhook-relay-url-dialog");
-        var urlInput = document.getElementById("webhook-relay-url-value");
-        var note = document.getElementById("webhook-relay-url-note");
-        var bucketLink = document.getElementById("webhook-relay-url-bucket");
         var errorBox = document.getElementById("webhook-relay-resolve-error");
-        var closeBtn = document.getElementById("webhook-relay-url-close");
-
-        closeBtn.addEventListener("click", function () {
-            dialog.close();
-        });
 
         btn.addEventListener("click", function () {
-            errorBox.style.display = "none";
+            errorBox.classList.add("jenkins-hidden");
             btn.disabled = true;
 
             var form = btn.closest("form");
@@ -35,11 +25,7 @@
             params.append("buckets", fieldValue("buckets"));
             params.append("scmPreset", fieldValue("scmPreset"));
 
-            var headers = { "Content-Type": "application/x-www-form-urlencoded" };
-            if (window.crumb && typeof window.crumb.wrap === "function") {
-                headers = window.crumb.wrap(headers);
-            }
-
+            var headers = crumb.wrap({ "Content-Type": "application/x-www-form-urlencoded" });
             fetch(btn.dataset.resolveUrl, { method: "POST", headers: headers, body: params.toString() })
                 .then(function (response) {
                     return response.json();
@@ -47,26 +33,38 @@
                 .then(function (data) {
                     btn.disabled = false;
                     if (data.ok) {
-                        urlInput.textContent = data.url;
-                        note.textContent =
+                        var template = document.getElementById("webhook-relay-url-dialog");
+                        var title = template.dataset.title;
+                        var content = template.content.firstElementChild.cloneNode(true);
+
+                        content.querySelector("#webhook-relay-url-value").textContent = data.url;
+                        content.querySelector("#webhook-relay-url-note").textContent =
                             "Webhooks received here are forwarded to " + data.endpointPath +
                             " on this Jenkins. Enable the connection and Save to start receiving them.";
+
+                        var bucketLink = content.querySelector("#webhook-relay-url-bucket");
                         if (data.bucketUrl) {
                             bucketLink.href = data.bucketUrl;
-                            bucketLink.style.display = "";
+                            bucketLink.classList.remove("jenkins-hidden");
                         } else {
-                            bucketLink.style.display = "none";
+                            bucketLink.classList.add("jenkins-hidden");
                         }
-                        dialog.showModal();
+
+                        Behaviour.applySubtree(content, false);
+                        dialog.alert(title, {
+                            content: content,
+                            okText: "Done",
+                            maxWidth: "600px",
+                        });
                     } else {
                         errorBox.textContent = data.error || "Failed to resolve webhook URL";
-                        errorBox.style.display = "";
+                        errorBox.classList.remove("jenkins-hidden");
                     }
                 })
                 .catch(function (e) {
                     btn.disabled = false;
                     errorBox.textContent = "Failed to resolve webhook URL: " + e;
-                    errorBox.style.display = "";
+                    errorBox.classList.remove("jenkins-hidden");
                 });
         });
     }

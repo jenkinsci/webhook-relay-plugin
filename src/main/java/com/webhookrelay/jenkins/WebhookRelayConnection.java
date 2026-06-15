@@ -3,7 +3,6 @@ package com.webhookrelay.jenkins;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
-import javax.net.ssl.SSLSocketFactory;
 import java.net.URI;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,12 +16,6 @@ public class WebhookRelayConnection extends WebSocketClient {
     public WebhookRelayConnection(URI serverUri, ConnectionManager manager) {
         super(serverUri);
         this.manager = manager;
-
-        if ("wss".equals(serverUri.getScheme())) {
-            // Use the JVM's default SSL socket factory, which validates the
-            // server certificate chain against the default trust store.
-            setSocketFactory((SSLSocketFactory) SSLSocketFactory.getDefault());
-        }
     }
 
     @Override

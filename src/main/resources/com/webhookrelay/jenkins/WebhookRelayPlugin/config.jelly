@@ -31,34 +31,35 @@
           <j:when test="${instance.connectionStatus.name() == 'SUBSCRIBED' ||
                           instance.connectionStatus.name() == 'AUTHENTICATED' ||
                           instance.connectionStatus.name() == 'CONNECTED'}">
-            <div class="jenkins-alert jenkins-alert-success">
+            <div class="jenkins-alert jenkins-alert-success" style="display:flex; align-items:center; gap:.5rem; margin:0;">
               <l:icon src="symbol-checkmark-circle plugin-ionicons-api" class="icon-sm" />
-              <j:out value="${instance.connectionStatus.displayName}" /><j:if test="${instance.statusMessage != ''}"> — ${instance.statusMessage}</j:if>
+              <span><j:out value="${instance.connectionStatus.displayName}" /><j:if test="${instance.statusMessage != ''}">&#160;&#8212;&#160;<j:out value="${instance.statusMessage}" /></j:if></span>
             </div>
           </j:when>
           <j:when test="${instance.connectionStatus.name() == 'ERROR' ||
                           instance.connectionStatus.name() == 'AUTH_FAILED'}">
-            <div class="jenkins-alert jenkins-alert-danger">
+            <div class="jenkins-alert jenkins-alert-danger" style="display:flex; align-items:center; gap:.5rem; margin:0;">
               <l:icon src="symbol-close-circle plugin-ionicons-api" class="icon-sm" />
-              <j:out value="${instance.connectionStatus.displayName}" /><j:if test="${instance.statusMessage != ''}"> — ${instance.statusMessage}</j:if>
+              <span><j:out value="${instance.connectionStatus.displayName}" /><j:if test="${instance.statusMessage != ''}">&#160;&#8212;&#160;<j:out value="${instance.statusMessage}" /></j:if></span>
             </div>
           </j:when>
           <j:when test="${instance.connectionStatus.name() == 'CONNECTING'}">
-            <div class="jenkins-alert jenkins-alert-warning">
+            <div class="jenkins-alert jenkins-alert-warning" style="display:flex; align-items:center; gap:.5rem; margin:0;">
               <l:icon src="symbol-time plugin-ionicons-api" class="icon-sm" />
-              <j:out value="${instance.connectionStatus.displayName}" />
+              <span><j:out value="${instance.connectionStatus.displayName}" /></span>
             </div>
           </j:when>
           <j:otherwise>
-            <div class="jenkins-alert jenkins-alert-info">
+            <div class="jenkins-alert jenkins-alert-info" style="display:flex; align-items:center; gap:.5rem; margin:0;">
               <l:icon src="symbol-remove-circle plugin-ionicons-api" class="icon-sm" />
-              <j:out value="${instance.connectionStatus.displayName}" />
+              <span><j:out value="${instance.connectionStatus.displayName}" /></span>
             </div>
           </j:otherwise>
         </j:choose>
         <j:if test="${instance.bucketDetailsUrl != null}">
           <div class="jenkins-!-margin-top-1">
-            <a href="${instance.bucketDetailsUrl}" target="_blank" rel="noopener noreferrer">
+            <a href="${instance.bucketDetailsUrl}" target="_blank" rel="noopener noreferrer"
+               style="display:inline-flex; align-items:center; gap:.5rem;">
               <l:icon src="symbol-open-outline plugin-ionicons-api" class="icon-sm" />
               View bucket logs &amp; settings in Webhook Relay
             </a>
@@ -79,38 +80,30 @@
           Get Webhook URL
         </button>
         <div id="webhook-relay-resolve-error"
-             class="jenkins-alert jenkins-alert-danger jenkins-!-margin-top-1"
-             style="display:none;"></div>
+             class="jenkins-alert jenkins-alert-danger jenkins-!-margin-top-1 jenkins-hidden"></div>
       </f:entry>
 
     </f:optionalBlock>
 
-    <!-- Plain native dialog: do NOT use the .jenkins-dialog class, which forces
-         display:flex and would keep the dialog visible after dialog.close(). -->
-    <dialog id="webhook-relay-url-dialog"
-            style="max-width:640px; border:none; border-radius:1rem; padding:1.5rem;
-                   box-shadow:0 10px 40px rgba(0,0,0,.3);">
-      <h2 style="margin:0 0 .75rem; font-size:1.1rem;">Webhook URL</h2>
-      <p>Paste this URL into your GitHub/GitLab/Bitbucket repository webhook settings:</p>
-      <div style="display:flex; gap:.5rem; align-items:center;">
-        <code id="webhook-relay-url-value" class="jenkins-input"
-              style="flex:1; padding:.4rem .6rem; overflow-wrap:anywhere; user-select:all;"></code>
-        <l:copyButton ref="webhook-relay-url-value" text=""
-                      message="Webhook URL copied" tooltip="Copy webhook URL" />
+    <!-- Content shown by dialog.alert() when the webhook URL is resolved. -->
+    <template id="webhook-relay-url-dialog" data-title="Webhook URL">
+      <div>
+        <p>Paste this URL into your GitHub/GitLab/Bitbucket repository webhook settings:</p>
+        <div style="width: 100%" class="jenkins-quote jenkins-quote--monospace">
+          <span id="webhook-relay-url-value" style="margin-right: auto;" />
+          <l:copyButton ref="webhook-relay-url-value" text="" message="Webhook URL copied"
+                        tooltip="Copy URL" clazz="jenkins-button--tertiary" />
+        </div>
+        <p id="webhook-relay-url-note" />
+        <p>
+          <a id="webhook-relay-url-bucket" href="#" target="_blank" rel="noopener noreferrer"
+             class="jenkins-hidden" style="display: flex; align-items: center; gap: 0.5rem;">
+            <l:icon src="symbol-open-outline plugin-ionicons-api" class="icon-sm" />
+            View bucket logs &amp; settings in Webhook Relay
+          </a>
+        </p>
       </div>
-      <p id="webhook-relay-url-note" style="margin-top:1rem;"></p>
-      <p>
-        <a id="webhook-relay-url-bucket" href="#" target="_blank" rel="noopener noreferrer"
-           style="display:none;">
-          <l:icon src="symbol-open-outline plugin-ionicons-api" class="icon-sm" />
-          View bucket logs &amp; settings in Webhook Relay
-        </a>
-      </p>
-      <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
-        <button type="button" class="jenkins-button jenkins-button--primary"
-                id="webhook-relay-url-close">Close</button>
-      </div>
-    </dialog>
+    </template>
 
     <st:adjunct includes="com.webhookrelay.jenkins.WebhookRelayPlugin.dialog" />
 
