@@ -1,84 +1,85 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:l="/lib/layout">
 
   <f:section title="Webhook Relay">
 
-    <f:entry title="Enable" field="enabled"
-             description="Connect to Webhook Relay and start forwarding webhooks to Jenkins">
-      <f:checkbox />
-    </f:entry>
+    <f:optionalBlock field="enabled" inline="true" checked="${instance.enabled}"
+                     title="Connect to Webhook Relay and forward webhooks to Jenkins">
 
-    <f:entry title="API Key" field="apiKey"
-             description="Your Webhook Relay token key. Get one at https://my.webhookrelay.com/tokens">
-      <f:password />
-    </f:entry>
+      <f:entry title="API Key" field="apiKey"
+               description="Your Webhook Relay token key. Get one at https://my.webhookrelay.com/tokens">
+        <f:password />
+      </f:entry>
 
-    <f:entry title="API Secret" field="apiSecret"
-             description="Your Webhook Relay token secret">
-      <f:password />
-    </f:entry>
+      <f:entry title="API Secret" field="apiSecret"
+               description="Your Webhook Relay token secret">
+        <f:password />
+      </f:entry>
 
-    <f:entry title="Bucket name" field="buckets"
-             description="The name of the Webhook Relay bucket to receive webhooks from (e.g. jenkins-plugin). You can list several, comma-separated, or leave empty to subscribe to every bucket in your account. Manage buckets at https://my.webhookrelay.com/buckets">
-      <f:textbox />
-    </f:entry>
+      <f:entry title="Bucket name" field="buckets"
+               description="The name of the Webhook Relay bucket to receive webhooks from (e.g. jenkins-plugin). You can list several, comma-separated, or leave empty to subscribe to every bucket in your account. Manage buckets at https://my.webhookrelay.com/buckets">
+        <f:textbox />
+      </f:entry>
 
-    <f:entry title="SCM Webhook Preset" field="scmPreset"
-             description="Select your SCM provider so the plugin delivers received webhooks to the correct Jenkins endpoint (e.g. github-webhook/). Choose Custom to use an internal output destination configured on the bucket.">
-      <f:select />
-    </f:entry>
+      <f:entry title="SCM Webhook Preset" field="scmPreset"
+               description="Select your SCM provider so the plugin delivers received webhooks to the correct Jenkins endpoint (e.g. github-webhook/). Choose Custom to use an internal output destination configured on the bucket.">
+        <f:select />
+      </f:entry>
 
-    <f:entry title="Connection Status">
-      <div id="webhook-relay-status">
+      <f:entry title="Connection Status">
         <j:choose>
           <j:when test="${instance.connectionStatus.name() == 'SUBSCRIBED' ||
                           instance.connectionStatus.name() == 'AUTHENTICATED' ||
                           instance.connectionStatus.name() == 'CONNECTED'}">
-            <span style="color:green; font-weight:bold;">
-              &#x2714; ${instance.connectionStatus.displayName}
-              <j:if test="${instance.statusMessage != ''}"> - ${instance.statusMessage}</j:if>
-            </span>
+            <div class="jenkins-alert jenkins-alert-success">
+              <l:icon src="symbol-checkmark-circle plugin-ionicons-api" class="icon-sm" />
+              <j:out value="${instance.connectionStatus.displayName}" /><j:if test="${instance.statusMessage != ''}"> — ${instance.statusMessage}</j:if>
+            </div>
           </j:when>
           <j:when test="${instance.connectionStatus.name() == 'ERROR' ||
                           instance.connectionStatus.name() == 'AUTH_FAILED'}">
-            <span style="color:red; font-weight:bold;">
-              &#x2718; ${instance.connectionStatus.displayName}
-              <j:if test="${instance.statusMessage != ''}"> - ${instance.statusMessage}</j:if>
-            </span>
+            <div class="jenkins-alert jenkins-alert-danger">
+              <l:icon src="symbol-close-circle plugin-ionicons-api" class="icon-sm" />
+              <j:out value="${instance.connectionStatus.displayName}" /><j:if test="${instance.statusMessage != ''}"> — ${instance.statusMessage}</j:if>
+            </div>
           </j:when>
           <j:when test="${instance.connectionStatus.name() == 'CONNECTING'}">
-            <span style="color:orange;">
-              &#x25CF; ${instance.connectionStatus.displayName}
-            </span>
+            <div class="jenkins-alert jenkins-alert-warning">
+              <l:icon src="symbol-time plugin-ionicons-api" class="icon-sm" />
+              <j:out value="${instance.connectionStatus.displayName}" />
+            </div>
           </j:when>
           <j:otherwise>
-            <span style="color:gray;">
-              &#x25CB; ${instance.connectionStatus.displayName}
-            </span>
+            <div class="jenkins-alert jenkins-alert-info">
+              <l:icon src="symbol-remove-circle plugin-ionicons-api" class="icon-sm" />
+              <j:out value="${instance.connectionStatus.displayName}" />
+            </div>
           </j:otherwise>
         </j:choose>
-      </div>
-      <j:if test="${instance.bucketDetailsUrl != null}">
-        <div style="margin-top:6px;">
-          <a href="${instance.bucketDetailsUrl}" target="_blank" rel="noopener noreferrer">
-            &#x1F50D; View bucket logs &amp; settings in Webhook Relay
-          </a>
-        </div>
-      </j:if>
-    </f:entry>
+        <j:if test="${instance.bucketDetailsUrl != null}">
+          <div class="jenkins-!-margin-top-1">
+            <a href="${instance.bucketDetailsUrl}" target="_blank" rel="noopener noreferrer">
+              <l:icon src="symbol-open-outline plugin-ionicons-api" class="icon-sm" />
+              View bucket logs &amp; settings in Webhook Relay
+            </a>
+          </div>
+        </j:if>
+      </f:entry>
 
-    <f:entry>
-      <f:validateButton title="Test Connection" progress="Testing..."
-                        method="testConnection"
-                        with="apiKey,apiSecret,buckets" />
-    </f:entry>
+      <f:entry>
+        <f:validateButton title="Test Connection" progress="Testing..."
+                          method="testConnection"
+                          with="apiKey,apiSecret,buckets" />
+      </f:entry>
 
-    <f:entry title="Webhook URL"
-             description="Resolve the public webhook URL for the bucket above (creating the bucket if needed), then paste it into your GitHub/GitLab/Bitbucket repository webhook settings.">
-      <f:validateButton title="Get Webhook URL" progress="Resolving..."
-                        method="getWebhookUrl"
-                        with="apiKey,apiSecret,buckets,scmPreset" />
-    </f:entry>
+      <f:entry title="Webhook URL"
+               description="Resolve the public webhook URL for the bucket above (creating the bucket if needed), then paste it into your GitHub/GitLab/Bitbucket repository webhook settings.">
+        <f:validateButton title="Get Webhook URL" progress="Resolving..."
+                          method="getWebhookUrl"
+                          with="apiKey,apiSecret,buckets,scmPreset" />
+      </f:entry>
+
+    </f:optionalBlock>
 
   </f:section>
 

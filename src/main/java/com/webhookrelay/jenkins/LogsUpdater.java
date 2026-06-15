@@ -6,10 +6,12 @@ import com.webhookrelay.jenkins.model.ForwardResponse;
 import com.webhookrelay.jenkins.model.WebhookEvent;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
 import java.util.logging.Level;
@@ -19,12 +21,13 @@ public class LogsUpdater {
 
     private static final Logger LOGGER = Logger.getLogger(LogsUpdater.class.getName());
     private static final String LOGS_API_BASE = "https://my.webhookrelay.com/v1/logs/";
-    private static final int CONNECT_TIMEOUT_MS = 5000;
-    private static final int READ_TIMEOUT_MS = 10000;
 
     private final String apiKey;
     private final String apiSecret;
     private final Gson gson = new Gson();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
 
     public LogsUpdater(String apiKey, String apiSecret) {
         this.apiKey = apiKey;
@@ -61,34 +64,30 @@ public class LogsUpdater {
 
             String jsonPayload = gson.toJson(payload);
 
-            URL url = new URL(LOGS_API_BASE + logId);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("PUT");
-            conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
-            conn.setReadTimeout(READ_TIMEOUT_MS);
-            conn.setRequestProperty("Content-Type", "application/json");
-
             String credentials = apiKey + ":" + apiSecret;
             String basicAuth = "Basic " + Base64.getEncoder().encodeToString(
                     credentials.getBytes(StandardCharsets.UTF_8));
-            conn.setRequestProperty("Authorization", basicAuth);
 
-            conn.setDoOutput(true);
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            }
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(LOGS_API_BASE + logId))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", basicAuth)
+                    .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))
+                    .build();
 
-            int responseCode = conn.getResponseCode();
-            if (responseCode == 200) {
+            HttpResponse<Void> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            if (httpResponse.statusCode() == 200) {
                 LOGGER.fine("Log update sent for webhook " + logId);
             } else {
                 LOGGER.warning("Log update failed for webhook " + logId
-                        + " - HTTP " + responseCode);
+                        + " - HTTP " + httpResponse.statusCode());
             }
-
-            conn.disconnect();
         } catch (java.io.IOException e) {
             LOGGER.log(Level.WARNING, "Failed to send log update", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.log(Level.WARNING, "Log update interrupted", e);
         }
     }
 

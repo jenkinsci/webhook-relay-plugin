@@ -35,31 +35,10 @@ https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into 
    (selected via the **SCM Webhook Preset**) and sends Jenkins' response (status, headers,
    body) back to the bucket log.
 
-## Requirements
-
-- Jenkins 2.479.1 or newer
-- Java 17 or 21
-- A free [Webhook Relay](https://webhookrelay.com) account and an API token
-  ([create one here](https://my.webhookrelay.com/tokens))
-
-## Installation
-
-### From the Jenkins Plugin Manager
-
-1. **Manage Jenkins → Plugins → Available**, search for **Webhook Relay**, install, restart.
-
-### Manual installation
-
-1. Download the latest `webhook-relay.hpi` from the [releases page](https://github.com/jenkinsci/webhook-relay-plugin/releases).
-2. **Manage Jenkins → Plugins → Advanced settings → Deploy Plugin**, upload the `.hpi`, restart.
-
-![Deploy the plugin](docs/images/01-install-deploy-plugin.png)
-
-Once installed, the plugin appears under **Installed plugins**:
-
-![Webhook Relay plugin installed](docs/images/02-installed-plugin.png)
-
 ## Configuration
+
+You will need a free [Webhook Relay](https://webhookrelay.com) account and an API token
+([create one here](https://my.webhookrelay.com/tokens)).
 
 1. Go to **Manage Jenkins → System** and scroll to the **Webhook Relay** section.
 2. Enter your **API Key** and **API Secret** ([get them here](https://my.webhookrelay.com/tokens)).
@@ -148,31 +127,7 @@ Webhook Relay section as above. See [`demo/README.md`](demo/README.md) for detai
 
 ## Development
 
-### Prerequisites
-
-- JDK 17 or 21 (JDK 25 is not yet supported by the Jenkins test harness)
-- Maven 3.9+
-
-```bash
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)   # macOS
-mvn clean verify                                   # compile, test, SpotBugs, build the .hpi
-mvn hpi:run                                         # run Jenkins locally with the plugin
-```
-
-### Project structure
-
-```
-src/main/java/com/webhookrelay/jenkins/
-  ConnectionManager.java      WebSocket lifecycle, reconnect with backoff
-  ConnectionStatus.java       Connection state enum
-  LogsUpdater.java            Report the Jenkins response back to the bucket log
-  WebhookForwarder.java       Replay the webhook against the Jenkins endpoint
-  WebhookRelayAPI.java        REST client (buckets, inputs, outputs)
-  WebhookRelayConnection.java WebSocket client (TLS, callbacks)
-  WebhookRelayPlugin.java     Global configuration, UI, bucket → URL lookup
-  model/                      JSON message POJOs
-demo/                         Docker + Configuration-as-Code demo
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test, and run the plugin locally.
 
 ## License
 

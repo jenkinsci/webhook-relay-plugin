@@ -66,7 +66,7 @@
         <dependency>
             <groupId>org.java-websocket</groupId>
             <artifactId>Java-WebSocket</artifactId>
-            <version>1.5.7</version>
+            <version>1.6.0</version>
             <exclusions>
                 <!-- slf4j-api is provided by Jenkins core; don't bundle it. -->
                 <exclusion>
@@ -82,18 +82,10 @@
             <artifactId>gson-api</artifactId>
         </dependency>
 
-        <!-- Jenkins plugin dependencies -->
+        <!-- Jenkins UI symbols used in the configuration screen -->
         <dependency>
-            <groupId>org.jenkins-ci.plugins</groupId>
-            <artifactId>structs</artifactId>
-        </dependency>
-
-        <!-- Servlet API (provided by Jenkins at runtime) -->
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <version>5.0.0</version>
-            <scope>provided</scope>
+            <groupId>io.jenkins.plugins</groupId>
+            <artifactId>ionicons-api</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
@@ -103,20 +95,6 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>InjectedTest.java</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 
     <repositories>
         <repository>

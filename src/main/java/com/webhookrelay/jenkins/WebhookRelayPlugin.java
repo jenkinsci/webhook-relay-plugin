@@ -5,6 +5,8 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import jenkins.model.GlobalConfiguration;
+
+import static hudson.Util.escape;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -218,9 +220,8 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
                 }
             };
 
-            javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getInstance("TLS");
-            sslContext.init(null, null, null);
-            testClient.setSocketFactory(sslContext.getSocketFactory());
+            testClient.setSocketFactory(
+                    (javax.net.ssl.SSLSocketFactory) javax.net.ssl.SSLSocketFactory.getDefault());
 
             testClient.connectBlocking(10, java.util.concurrent.TimeUnit.SECONDS);
 
@@ -308,10 +309,6 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
             LOGGER.log(Level.WARNING, "Failed to resolve webhook URL", e);
             return FormValidation.error("Failed to resolve webhook URL: " + e.getMessage());
         }
-    }
-
-    private static String escape(String value) {
-        return hudson.Util.escape(value);
     }
 
     private String firstBucketName(String buckets) {
