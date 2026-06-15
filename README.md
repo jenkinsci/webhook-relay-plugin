@@ -110,7 +110,7 @@ Jenkins accepted the webhook. The plugin links straight to it — both in the **
 result and as a **View bucket logs &amp; settings** link under the connection status — once the
 bucket has been resolved.
 
-![Bucket logs](docs/images/09-bucket-logs.png)
+![Bucket logs](docs/images/09-whr-bucket-logs.png)
 
 ## Try it with Docker
 
