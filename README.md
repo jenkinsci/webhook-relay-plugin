@@ -71,15 +71,34 @@ on the public URL and the plugin forwards it to the right Jenkins endpoint.
 
 ## Triggering builds
 
-Configure your Jenkins job the same way you would for a publicly reachable Jenkins:
+The plugin only delivers the webhook to Jenkins — your job decides what to do with it,
+exactly as it would if Jenkins were reachable from the internet. There is **no special
+Webhook Relay configuration on the job**; you use the normal SCM trigger.
 
-- **GitHub**: a Pipeline/Freestyle job with a Git SCM pointing at the repo and **GitHub
-  hook trigger for GITScm polling** enabled (`githubPush()` in a declarative pipeline).
-- **GitLab** / **Bitbucket**: enable the corresponding hook trigger.
-- **Generic Webhook Trigger**: any job with the Generic Webhook Trigger configured.
+For a **GitHub** job (Freestyle or Pipeline):
+
+1. Create a job: **New Item → Freestyle project** (or **Pipeline**).
+2. Under **Source Code Management**, choose **Git** and set the **Repository URL** to your
+   repo (add credentials if it is private):
+
+   ![Job Source Code Management — Git repository](docs/images/07-job-scm.png)
+
+3. Under **Triggers**, tick **GitHub hook trigger for GITScm polling**, then **Save**:
+
+   ![Job Triggers — GitHub hook trigger for GITScm polling](docs/images/08-job-trigger.png)
+
+In a declarative **Pipeline** the equivalent of step 3 is a `triggers { githubPush() }` block
+in the `Jenkinsfile` (see [`demo/Jenkinsfile`](demo/Jenkinsfile)).
+
+For other providers, tick the matching trigger in the same **Triggers** section:
+
+- **GitLab** — *Build when a change is pushed to GitLab* (GitLab plugin).
+- **Bitbucket** — the Bitbucket push trigger (Bitbucket plugin).
+- **Anything else** — **Generic Webhook Trigger** (shown in the screenshot above), which fires
+  on any POST and needs no SCM match.
 
 When a push arrives, the build starts — triggered by the webhook that travelled through the
-bucket and the plugin:
+bucket and the plugin (note *“Started by GitHub push”*):
 
 ![Build triggered by a GitHub push through Webhook Relay](docs/images/05-build-triggered.png)
 
