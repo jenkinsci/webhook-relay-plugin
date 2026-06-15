@@ -15,7 +15,7 @@ request/response history for debugging.
 GitHub / GitLab / Bitbucket
         │  (webhook)
         ▼
-https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into the SCM
+https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into the SCM (GitHub, GitLab, Bitbucket)
         │
         ▼
    Webhook Relay bucket  ──────────────►  logs page (every request + Jenkins response)
