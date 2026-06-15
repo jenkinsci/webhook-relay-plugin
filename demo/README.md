@@ -6,7 +6,9 @@ build flow, with no public Jenkins required.
 ## What's included
 
 - **`Dockerfile`** — `jenkins/jenkins:lts-jdk17` with the plugin's dependencies pre-installed
-  (`git`, `github`, `workflow-aggregator`, `generic-webhook-trigger`, `configuration-as-code`).
+  (`git`, `github`, `workflow-aggregator`, `generic-webhook-trigger`, `configuration-as-code`,
+  `gson-api`, `ionicons-api`). The Webhook Relay plugin itself is **not** baked in, so you can
+  practise installing it.
 - **`casc.yaml`** — Configuration as Code: an `admin` user, the internal Jenkins URL, and an
   optional GitHub credential for cloning a private demo repository.
 - **`docker-compose.yml`** — runs Jenkins on <http://localhost:8095>.
@@ -30,13 +32,20 @@ Open <http://localhost:8095> (admin / admin).
 
 ## Steps
 
-1. **Install the plugin** — *Manage Jenkins → Plugins → Advanced settings → Deploy Plugin*,
-   upload `../target/webhook-relay.hpi`, restart.
-2. **Configure** — *Manage Jenkins → System → Webhook Relay*: enter your API key/secret, a
-   bucket name, pick the GitHub preset, **Enable**, **Save**. The status should read
-   **✔ Subscribed**.
-3. **Get the webhook URL** — click **Get Webhook URL** and paste the value into your GitHub
-   repository's *Settings → Webhooks*.
+1. **Install the plugin.** Open **Manage Jenkins → Plugins → Advanced settings**, scroll to
+   **Deploy Plugin**, choose `target/webhook-relay.hpi` (built in the step above) and click
+   **Deploy**. You should see *“webhook-relay — Success”*; the plugin loads immediately (no
+   restart required because its dependencies are already installed). A restart is still fine
+   if you prefer a clean slate.
+2. **Configure.** Open **Manage Jenkins → System** and find the **Webhook Relay** section.
+   Tick **Connect to Webhook Relay and forward webhooks to Jenkins**, enter your API
+   key/secret ([tokens](https://my.webhookrelay.com/tokens)), a **Bucket name**
+   (e.g. `jenkins-plugin`), pick the **GitHub** preset, then **Save**. Use **Test Connection**
+   to check the credentials; once saved, **Connection Status** shows a green **Subscribed**
+   banner.
+3. **Get the webhook URL.** Click **Get Webhook URL** — a dialog shows the public URL with a
+   copy button. Paste it into your GitHub repository's *Settings → Webhooks → Add webhook*
+   (content type `application/json`).
 4. **Create the demo job** (or import `jobs/webhook-relay-demo.config.xml`):
 
    ```bash
@@ -53,7 +62,8 @@ Open <http://localhost:8095> (admin / admin).
 
 ## Notes
 
+- Sign in with **admin / admin** (provisioned by `casc.yaml`).
 - The Jenkins URL is set to `http://localhost:8080/` (the container-internal port) so the
   plugin can deliver webhooks back to Jenkins itself. Browse via the mapped host port `8095`.
-- The demo disables nothing security-wise by default; for unattended screenshotting you may
-  prefer to relax authentication, but that is **not** recommended outside a throwaway demo.
+- To start over from a clean, plugin-free state:
+  `docker compose -f demo/docker-compose.yml down -v && docker compose -f demo/docker-compose.yml up -d`.

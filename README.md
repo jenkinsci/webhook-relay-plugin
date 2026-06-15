@@ -55,9 +55,10 @@ to verify your credentials without saving.
 ### Get your webhook URL
 
 Click **Get Webhook URL** to resolve the bucket's public input URL (creating the bucket if
-needed). Paste that URL into your repository's webhook settings.
+needed). A dialog shows the URL with a copy button and a link to the bucket — paste the URL
+into your repository's webhook settings.
 
-![Resolve the webhook URL](docs/images/04-get-webhook-url.png)
+![The Get Webhook URL dialog](docs/images/06-webhook-url-dialog.png)
 
 | SCM | Where to paste the URL | Webhook content type |
 |---|---|---|

@@ -1,5 +1,5 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:l="/lib/layout">
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
 
   <f:section title="Webhook Relay">
 
@@ -74,12 +74,43 @@
 
       <f:entry title="Webhook URL"
                description="Resolve the public webhook URL for the bucket above (creating the bucket if needed), then paste it into your GitHub/GitLab/Bitbucket repository webhook settings.">
-        <f:validateButton title="Get Webhook URL" progress="Resolving..."
-                          method="getWebhookUrl"
-                          with="apiKey,apiSecret,buckets,scmPreset" />
+        <button type="button" class="jenkins-button" id="webhook-relay-resolve-btn"
+                data-resolve-url="${instance.descriptorFullUrl}/resolveWebhookUrl">
+          Get Webhook URL
+        </button>
+        <div id="webhook-relay-resolve-error"
+             class="jenkins-alert jenkins-alert-danger jenkins-!-margin-top-1"
+             style="display:none;"></div>
       </f:entry>
 
     </f:optionalBlock>
+
+    <dialog class="jenkins-dialog" id="webhook-relay-url-dialog" style="max-width:640px;">
+      <div class="jenkins-dialog__title" style="font-weight:600; margin-bottom:.5rem;">Webhook URL</div>
+      <div class="jenkins-dialog__contents">
+        <p>Paste this URL into your GitHub/GitLab/Bitbucket repository webhook settings:</p>
+        <div style="display:flex; gap:.5rem; align-items:center;">
+          <code id="webhook-relay-url-value" class="jenkins-input"
+                style="flex:1; padding:.4rem .6rem; overflow-wrap:anywhere; user-select:all;"></code>
+          <l:copyButton ref="webhook-relay-url-value" text=""
+                        message="Webhook URL copied" tooltip="Copy webhook URL" />
+        </div>
+        <p id="webhook-relay-url-note" class="jenkins-!-margin-top-2"></p>
+        <p>
+          <a id="webhook-relay-url-bucket" href="#" target="_blank" rel="noopener noreferrer"
+             style="display:none;">
+            <l:icon src="symbol-open-outline plugin-ionicons-api" class="icon-sm" />
+            View bucket logs &amp; settings in Webhook Relay
+          </a>
+        </p>
+      </div>
+      <div class="jenkins-dialog__buttons jenkins-!-margin-top-2">
+        <button type="button" class="jenkins-button jenkins-button--primary"
+                id="webhook-relay-url-close">Close</button>
+      </div>
+    </dialog>
+
+    <st:adjunct includes="com.webhookrelay.jenkins.WebhookRelayPlugin.dialog" />
 
   </f:section>
 

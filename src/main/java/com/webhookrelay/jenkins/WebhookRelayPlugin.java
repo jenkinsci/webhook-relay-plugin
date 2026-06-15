@@ -5,12 +5,13 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import jenkins.model.GlobalConfiguration;
-
-import static hudson.Util.escape;
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.StaplerResponse2;
+import org.kohsuke.stapler.verb.POST;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -259,22 +260,33 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
      * webhooks stream over the socket to this plugin and every request is recorded on
      * the bucket's logs page.
      */
-    public FormValidation doGetWebhookUrl(
+    @POST
+    public void doResolveWebhookUrl(
+            StaplerResponse2 rsp,
             @QueryParameter("apiKey") Secret apiKey,
             @QueryParameter("apiSecret") Secret apiSecret,
             @QueryParameter("buckets") String buckets,
-            @QueryParameter("scmPreset") String scmPreset) {
+            @QueryParameter("scmPreset") String scmPreset) throws java.io.IOException {
 
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+
+        JSONObject result = resolveWebhookUrl(apiKey, apiSecret, buckets, scmPreset);
+        rsp.setContentType("application/json;charset=UTF-8");
+        rsp.getWriter().write(result.toString());
+    }
+
+    private JSONObject resolveWebhookUrl(Secret apiKey, Secret apiSecret, String buckets, String scmPreset) {
+        JSONObject result = new JSONObject();
         if (apiKey == null || Secret.toString(apiKey).isEmpty()) {
-            return FormValidation.error("API Key is required");
+            return result.element("ok", false).element("error", "API Key is required");
         }
         if (apiSecret == null || Secret.toString(apiSecret).isEmpty()) {
-            return FormValidation.error("API Secret is required");
+            return result.element("ok", false).element("error", "API Secret is required");
         }
 
         String bucketName = firstBucketName(buckets);
         if (bucketName == null) {
-            return FormValidation.error("Enter a bucket name first");
+            return result.element("ok", false).element("error", "Enter a bucket name first");
         }
 
         try {
@@ -284,30 +296,27 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
             WebhookRelayAPI.Bucket bucket = api.findOrCreateBucket(bucketName);
             WebhookRelayAPI.Input input = bucket.primaryInput();
             if (input == null) {
-                return FormValidation.error(
+                return result.element("ok", false).element("error",
                         "Bucket '" + bucketName + "' has no input endpoint. "
                                 + "Add a public input at https://my.webhookrelay.com/buckets");
             }
 
             setBucketId(bucket.id);
 
-            String inputUrl = input.endpointUrl();
             String preset = (scmPreset == null || scmPreset.isEmpty()) ? "github" : scmPreset;
             String endpointPath = SCM_PRESETS.getOrDefault(preset, SCM_PRESETS.get("github"));
-            String bucketUrl = getBucketDetailsUrl();
+            String inputUrl = input.endpointUrl();
             LOGGER.info("Resolved webhook URL for bucket '" + bucketName + "': " + inputUrl);
 
-            return FormValidation.okWithMarkup(
-                    "Paste this webhook URL into your " + escape(preset)
-                            + " repository webhook settings:<br/><b>" + escape(inputUrl) + "</b><br/>"
-                            + "Webhooks received here are forwarded to <code>"
-                            + escape(endpointPath.isEmpty() ? "(custom)" : endpointPath)
-                            + "</code> on this Jenkins. Enable the connection and Save to start receiving them.<br/>"
-                            + "View this bucket's logs and settings: <a href=\"" + escape(bucketUrl)
-                            + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escape(bucketUrl) + "</a>");
+            return result.element("ok", true)
+                    .element("url", inputUrl)
+                    .element("preset", preset)
+                    .element("endpointPath", endpointPath.isEmpty() ? "(custom output)" : endpointPath)
+                    .element("bucketUrl", getBucketDetailsUrl() != null ? getBucketDetailsUrl() : "");
         } catch (java.io.IOException e) {
             LOGGER.log(Level.WARNING, "Failed to resolve webhook URL", e);
-            return FormValidation.error("Failed to resolve webhook URL: " + e.getMessage());
+            return result.element("ok", false)
+                    .element("error", "Failed to resolve webhook URL: " + e.getMessage());
         }
     }
 
