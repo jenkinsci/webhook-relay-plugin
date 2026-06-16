@@ -197,11 +197,13 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
                     try {
                         com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(message).getAsJsonObject();
                         String status = json.has("status") ? json.get("status").getAsString() : "";
+                        String msg = json.has("message") ? json.get("message").getAsString() : status;
                         if ("authenticated".equals(status)) {
                             authenticated[0] = true;
                             result[0] = "Authenticated successfully";
+                        } else if ("unauthorized".equals(status) || "forbidden".equals(status)) {
+                            result[0] = "API key or secret is incorrect. " + msg;
                         } else {
-                            String msg = json.has("message") ? json.get("message").getAsString() : status;
                             result[0] = "Server response: " + msg;
                         }
                     } catch (Exception e) {

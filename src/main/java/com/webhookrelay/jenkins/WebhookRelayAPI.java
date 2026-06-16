@@ -111,8 +111,12 @@ public class WebhookRelayAPI {
         try {
             HttpResponse<String> response = httpClient.send(
                     request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() >= 400) {
-                throw new IOException("API request failed: HTTP " + response.statusCode()
+            int code = response.statusCode();
+            if (code == 401 || code == 403) {
+                throw new IOException("API key or secret is incorrect (HTTP " + code + ")");
+            }
+            if (code >= 400) {
+                throw new IOException("Webhook Relay API request failed: HTTP " + code
                         + " - " + response.body());
             }
             return response.body();

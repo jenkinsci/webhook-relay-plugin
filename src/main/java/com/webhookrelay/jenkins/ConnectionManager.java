@@ -165,15 +165,25 @@ public class ConnectionManager {
                 updateStatus(ConnectionStatus.SUBSCRIBED, msg);
                 break;
 
+            case "unauthorized":
+            case "forbidden":
+                LOGGER.warning("Webhook Relay authentication failed: " + msg);
+                authFailed = true;
+                updateStatus(ConnectionStatus.AUTH_FAILED,
+                        "API key or secret is incorrect. " + msg);
+                break;
+
             default:
-                if (status.contains("error") || status.contains("fail")) {
+                String lower = (status + " " + msg).toLowerCase(java.util.Locale.ROOT);
+                if (lower.contains("unauthorized") || lower.contains("invalid key")
+                        || lower.contains("key or secret")) {
+                    LOGGER.warning("Webhook Relay authentication failed: " + msg);
+                    authFailed = true;
+                    updateStatus(ConnectionStatus.AUTH_FAILED,
+                            "API key or secret is incorrect. " + msg);
+                } else if (status.contains("error") || status.contains("fail")) {
                     LOGGER.warning("Webhook Relay error: " + status + " - " + msg);
-                    if (status.contains("auth") || msg.toLowerCase().contains("unauthorized")) {
-                        authFailed = true;
-                        updateStatus(ConnectionStatus.AUTH_FAILED, msg);
-                    } else {
-                        updateStatus(ConnectionStatus.ERROR, msg);
-                    }
+                    updateStatus(ConnectionStatus.ERROR, msg);
                 } else {
                     LOGGER.info("Webhook Relay status: " + status + " - " + msg);
                 }
