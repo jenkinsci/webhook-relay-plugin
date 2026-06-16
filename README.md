@@ -1,7 +1,7 @@
 # Webhook Relay Plugin for Jenkins
 
 Receive GitHub, GitLab, and Bitbucket webhooks in Jenkins **without exposing Jenkins to
-the public internet**. The plugin opens an outbound connection to a
+the public internet**. The [plugin](https://webhookrelay.com/docs/tutorials/cicd/jenkins-plugin/) opens an outbound connection to a
 [Webhook Relay](https://webhookrelay.com) **bucket** and forwards every webhook it receives
 to the matching Jenkins endpoint (`/github-webhook/`, `/bitbucket-hook/`, …), so your SCM
 can trigger builds even when Jenkins lives on a private network, behind a firewall, or on
