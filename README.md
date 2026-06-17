@@ -35,6 +35,13 @@ https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into 
    (selected via the **SCM Webhook Preset**) and sends Jenkins' response (status, headers,
    body) back to the bucket log.
 
+## Installation
+
+Install from the Jenkins update center: **Manage Jenkins → Plugins → Available plugins**,
+search for **Webhook Relay**, install it, and restart Jenkins. Alternatively, download the
+`.hpi` from the [plugin page](https://plugins.jenkins.io/webhook-relay/) and upload it under
+**Manage Jenkins → Plugins → Advanced settings → Deploy Plugin**.
+
 ## Configuration
 
 You will need a free [Webhook Relay](https://webhookrelay.com) account and an API token
