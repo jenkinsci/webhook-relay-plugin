@@ -36,6 +36,16 @@ class WebhookForwarderTest {
     }
 
     @Test
+    public void testDetermineDestinationUsesGiteaPreset() {
+        // With no internal output, the configured SCM preset path is used verbatim.
+        String json = "{\"type\":\"webhook\",\"meta\":{\"output_destination\":\"/\"},\"body\":\"{}\",\"method\":\"POST\"}";
+        WebhookEvent event = gson.fromJson(json, WebhookEvent.class);
+
+        WebhookForwarder forwarder = new WebhookForwarder("gitea-webhook/post");
+        assertEquals("gitea-webhook/post", forwarder.determineDestination(event));
+    }
+
+    @Test
     public void testDetermineDestinationDefaultWhenNoPresetGiven() {
         String json = "{\"type\":\"webhook\",\"meta\":{},\"body\":\"{}\",\"method\":\"POST\"}";
         WebhookEvent event = gson.fromJson(json, WebhookEvent.class);

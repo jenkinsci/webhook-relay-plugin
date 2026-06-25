@@ -1,6 +1,6 @@
 # Webhook Relay Plugin for Jenkins
 
-Receive GitHub, GitLab, and Bitbucket webhooks in Jenkins **without exposing Jenkins to
+Receive GitHub, GitLab, Bitbucket, and Gitea webhooks in Jenkins **without exposing Jenkins to
 the public internet**. The [plugin](https://webhookrelay.com/docs/tutorials/cicd/jenkins-plugin/) opens an outbound connection to a
 [Webhook Relay](https://webhookrelay.com) **bucket** and forwards every webhook it receives
 to the matching Jenkins endpoint (`/github-webhook/`, `/bitbucket-hook/`, …), so your SCM
@@ -51,7 +51,7 @@ You will need a free [Webhook Relay](https://webhookrelay.com) account and an AP
 2. Enter your **API Key** and **API Secret** ([get them here](https://my.webhookrelay.com/tokens)).
 3. Enter a **Bucket name** (e.g. `jenkins-plugin`). It can be an existing bucket or a new
    name — the plugin creates it for you.
-4. Choose your **SCM Webhook Preset** (GitHub, GitLab, Bitbucket, or Generic Webhook Trigger).
+4. Choose your **SCM Webhook Preset** (GitHub, GitLab, Bitbucket, Gitea, or Generic Webhook Trigger).
 5. Tick **Enable** and click **Save**.
 
 ![Configure the Webhook Relay plugin](docs/images/03-config-subscribed.png)
@@ -72,6 +72,7 @@ into your repository's webhook settings.
 | GitHub | *Settings → Webhooks → Add webhook → Payload URL* | `application/json` |
 | GitLab | *Settings → Webhooks → URL* | — |
 | Bitbucket | *Repository settings → Webhooks → Add webhook → URL* | — |
+| Gitea | *Repository settings → Webhooks → Add webhook → Gitea → Target URL* | `application/json` |
 
 That's it — you don't change anything else in the SCM. Webhook Relay receives the webhook
 on the public URL and the plugin forwards it to the right Jenkins endpoint.
@@ -101,6 +102,7 @@ For other providers, tick the matching trigger in the same **Triggers** section:
 
 - **GitLab** — *Build when a change is pushed to GitLab* (GitLab plugin).
 - **Bitbucket** — the Bitbucket push trigger (Bitbucket plugin).
+- **Gitea** — the Gitea push trigger (Gitea plugin); the preset delivers to `/gitea-webhook/post`.
 - **Anything else** — **Generic Webhook Trigger** (shown in the screenshot above), which fires
   on any POST and needs no SCM match.
 
@@ -140,7 +142,7 @@ Webhook Relay section as above. See [`demo/README.md`](demo/README.md) for detai
 | **Enable** | Connect to Webhook Relay and start forwarding. |
 | **API Key / Secret** | Webhook Relay token credentials. Stored encrypted. |
 | **Bucket name** | Bucket(s) to subscribe to (comma-separated). Empty = all buckets. |
-| **SCM Webhook Preset** | Jenkins endpoint to deliver to: `github-webhook/`, `project/` (GitLab), `bitbucket-hook/`, `generic-webhook-trigger/invoke`, or Custom. |
+| **SCM Webhook Preset** | Jenkins endpoint to deliver to: `github-webhook/`, `project/` (GitLab), `bitbucket-hook/`, `gitea-webhook/post`, `generic-webhook-trigger/invoke`, or Custom. |
 
 > **Custom preset / internal outputs:** if you configure an *internal output* on the bucket
 > with a full `http://…` destination, the plugin honours that path instead of the preset.

@@ -18,7 +18,7 @@
 
     <name>Webhook Relay</name>
     <description>Receives webhooks through a Webhook Relay bucket and forwards them to Jenkins over an
-        outbound connection. Enables GitHub, GitLab, and Bitbucket webhook integration without exposing
+        outbound connection. Enables GitHub, GitLab, Bitbucket, and Gitea webhook integration without exposing
         Jenkins to the public internet, while keeping every delivery visible on the bucket's logs page.</description>
     <url>https://github.com/jenkinsci/webhook-relay-plugin</url>
 

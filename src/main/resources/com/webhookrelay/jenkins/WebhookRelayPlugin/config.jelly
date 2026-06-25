@@ -74,7 +74,7 @@
       </f:entry>
 
       <f:entry title="Webhook URL"
-               description="Resolve the public webhook URL for the bucket above (creating the bucket if needed), then paste it into your GitHub/GitLab/Bitbucket repository webhook settings.">
+               description="Resolve the public webhook URL for the bucket above (creating the bucket if needed), then paste it into your GitHub/GitLab/Bitbucket/Gitea repository webhook settings.">
         <button type="button" class="jenkins-button" id="webhook-relay-resolve-btn"
                 data-resolve-url="${instance.descriptorFullUrl}/resolveWebhookUrl">
           Get Webhook URL
@@ -88,7 +88,7 @@
     <!-- Content shown by dialog.alert() when the webhook URL is resolved. -->
     <template id="webhook-relay-url-dialog" data-title="Webhook URL">
       <div>
-        <p>Paste this URL into your GitHub/GitLab/Bitbucket repository webhook settings:</p>
+        <p>Paste this URL into your GitHub/GitLab/Bitbucket/Gitea repository webhook settings:</p>
         <div style="width: 100%" class="jenkins-quote jenkins-quote--monospace">
           <span id="webhook-relay-url-value" style="margin-right: auto;" />
           <l:copyButton ref="webhook-relay-url-value" text="" message="Webhook URL copied"

@@ -43,6 +43,22 @@ class WebhookRelayPluginTest {
     }
 
     @Test
+    void testScmPresetEndpointPaths(JenkinsRule jenkins) {
+        WebhookRelayPlugin plugin = WebhookRelayPlugin.get();
+        assertNotNull(plugin);
+
+        plugin.setScmPreset("gitea");
+        assertEquals("gitea-webhook/post", plugin.getWebhookEndpointPath());
+
+        plugin.setScmPreset("github");
+        assertEquals("github-webhook/", plugin.getWebhookEndpointPath());
+
+        // Unknown presets fall back to the GitHub endpoint.
+        plugin.setScmPreset("does-not-exist");
+        assertEquals("github-webhook/", plugin.getWebhookEndpointPath());
+    }
+
+    @Test
     void testConnectionStatusUpdate(JenkinsRule jenkins) {
         WebhookRelayPlugin plugin = WebhookRelayPlugin.get();
         assertNotNull(plugin);
