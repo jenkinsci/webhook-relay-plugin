@@ -32,6 +32,7 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         SCM_PRESETS.put("github", "github-webhook/");
         SCM_PRESETS.put("gitlab", "project/");
         SCM_PRESETS.put("bitbucket", "bitbucket-hook/");
+        SCM_PRESETS.put("gitea", "gitea-webhook/post");
         SCM_PRESETS.put("generic", "generic-webhook-trigger/invoke");
         SCM_PRESETS.put("custom", "");
     }
@@ -142,6 +143,7 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         items.add("GitHub (github-webhook/)", "github");
         items.add("GitLab (project/)", "gitlab");
         items.add("Bitbucket (bitbucket-hook/)", "bitbucket");
+        items.add("Gitea (gitea-webhook/post)", "gitea");
         items.add("Generic Webhook Trigger (generic-webhook-trigger/invoke)", "generic");
         items.add("Custom", "custom");
         return items;
