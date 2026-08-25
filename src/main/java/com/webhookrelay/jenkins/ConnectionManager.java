@@ -6,7 +6,9 @@ import com.google.gson.JsonParser;
 import com.webhookrelay.jenkins.model.ForwardResponse;
 import com.webhookrelay.jenkins.model.SubscribeMessage;
 import com.webhookrelay.jenkins.model.WebhookEvent;
+import hudson.ProxyConfiguration;
 import hudson.util.Secret;
+import jenkins.model.Jenkins;
 
 import java.net.URI;
 import java.util.List;
@@ -97,6 +99,12 @@ public class ConnectionManager {
         try {
             URI uri = new URI(WS_ENDPOINT);
             connection = new WebhookRelayConnection(uri, this);
+
+            ProxyConfiguration proxyConfiguration = Jenkins.get().proxy;
+            if (proxyConfiguration != null) {
+                connection.setProxy(proxyConfiguration.createProxy(uri.getHost()));
+            }
+
             connection.setConnectionLostTimeout(60);
             connection.connect();
         } catch (Exception e) {

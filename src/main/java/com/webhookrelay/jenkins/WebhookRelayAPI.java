@@ -3,6 +3,7 @@ package com.webhookrelay.jenkins;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
+import hudson.ProxyConfiguration;
 import hudson.util.Secret;
 
 import java.io.IOException;
@@ -25,9 +26,9 @@ public class WebhookRelayAPI {
     private final Secret apiKey;
     private final Secret apiSecret;
     private final Gson gson = new Gson();
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(CONNECT_TIMEOUT)
-            .build();
+    private final HttpClient httpClient = ProxyConfiguration.newHttpClientBuilder()
+        .connectTimeout(CONNECT_TIMEOUT)
+        .build();
 
     public WebhookRelayAPI(Secret apiKey, Secret apiSecret) {
         this.apiKey = apiKey;

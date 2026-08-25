@@ -1,6 +1,7 @@
 package com.webhookrelay.jenkins;
 
 import hudson.Extension;
+import hudson.ProxyConfiguration;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
@@ -231,6 +232,11 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
 
             testClient.setSocketFactory(
                     (javax.net.ssl.SSLSocketFactory) javax.net.ssl.SSLSocketFactory.getDefault());
+
+            ProxyConfiguration proxyConfiguration = Jenkins.get().proxy;
+            if (proxyConfiguration != null) {
+                testClient.setProxy(proxyConfiguration.createProxy(uri.getHost()));
+            }
 
             testClient.connectBlocking(10, java.util.concurrent.TimeUnit.SECONDS);
 
