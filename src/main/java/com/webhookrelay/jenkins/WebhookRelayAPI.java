@@ -7,31 +7,33 @@ import hudson.util.Secret;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class WebhookRelayAPI {
 
-    private static final String API_BASE = "https://my.webhookrelay.com/v1";
+    private static final URI API_BASE = URI.create("https://my.webhookrelay.com/v1");
     static final String PUBLIC_WEBHOOK_BASE = "https://my.webhookrelay.com/v1/webhooks/";
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private final Secret apiKey;
     private final Secret apiSecret;
+    private final URI apiBase;
     private final Gson gson = new Gson();
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(CONNECT_TIMEOUT)
-            .build();
 
     public WebhookRelayAPI(Secret apiKey, Secret apiSecret) {
+        this(apiKey, apiSecret, API_BASE);
+    }
+
+    WebhookRelayAPI(Secret apiKey, Secret apiSecret, URI apiBase) {
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
+        this.apiBase = apiBase;
     }
 
     public List<Bucket> listBuckets() throws IOException {
@@ -98,32 +100,26 @@ public class WebhookRelayAPI {
         String basicAuth = "Basic " + Base64.getEncoder().encodeToString(
                 credentials.getBytes(StandardCharsets.UTF_8));
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(API_BASE + path))
-                .timeout(REQUEST_TIMEOUT)
-                .header("Content-Type", "application/json")
-                .header("Authorization", basicAuth)
-                .method(method, body == null
-                        ? HttpRequest.BodyPublishers.noBody()
-                        : HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                .build();
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Content-Type", "application/json");
+        headers.put("Authorization", basicAuth);
 
-        try {
-            HttpResponse<String> response = httpClient.send(
-                    request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            int code = response.statusCode();
-            if (code == 401 || code == 403) {
-                throw new IOException("API key or secret is incorrect (HTTP " + code + ")");
-            }
-            if (code >= 400) {
-                throw new IOException("Webhook Relay API request failed: HTTP " + code
-                        + " - " + response.body());
-            }
-            return response.body();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("API request was interrupted", e);
+        JenkinsProxySupport.HttpResponse response = JenkinsProxySupport.send(
+                URI.create(apiBase + path),
+                method,
+                headers,
+                body == null ? null : body.getBytes(StandardCharsets.UTF_8),
+                CONNECT_TIMEOUT,
+                REQUEST_TIMEOUT);
+        int code = response.statusCode();
+        if (code == 401 || code == 403) {
+            throw new IOException("API key or secret is incorrect (HTTP " + code + ")");
         }
+        if (code >= 400) {
+            throw new IOException("Webhook Relay API request failed: HTTP " + code
+                    + " - " + response.body());
+        }
+        return response.body();
     }
 
     public static class Bucket {

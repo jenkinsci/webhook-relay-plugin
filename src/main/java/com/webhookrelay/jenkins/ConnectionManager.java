@@ -97,6 +97,9 @@ public class ConnectionManager {
         try {
             URI uri = new URI(WS_ENDPOINT);
             connection = new WebhookRelayConnection(uri, this);
+
+            JenkinsProxySupport.configure(connection, uri);
+
             connection.setConnectionLostTimeout(60);
             connection.connect();
         } catch (Exception e) {

@@ -232,6 +232,8 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
             testClient.setSocketFactory(
                     (javax.net.ssl.SSLSocketFactory) javax.net.ssl.SSLSocketFactory.getDefault());
 
+            JenkinsProxySupport.configure(testClient, uri);
+
             testClient.connectBlocking(10, java.util.concurrent.TimeUnit.SECONDS);
 
             if (!testClient.isOpen()) {
