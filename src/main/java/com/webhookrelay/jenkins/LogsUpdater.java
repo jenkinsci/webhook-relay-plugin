@@ -8,12 +8,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.util.Secret;
 
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,18 +19,21 @@ import java.util.logging.Logger;
 public class LogsUpdater {
 
     private static final Logger LOGGER = Logger.getLogger(LogsUpdater.class.getName());
-    private static final String LOGS_API_BASE = "https://my.webhookrelay.com/v1/logs/";
+    private static final URI LOGS_API_BASE = URI.create("https://my.webhookrelay.com/v1/logs/");
 
     private final Secret apiKey;
     private final Secret apiSecret;
+    private final URI logsApiBase;
     private final Gson gson = new Gson();
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .build();
 
     public LogsUpdater(Secret apiKey, Secret apiSecret) {
+        this(apiKey, apiSecret, LOGS_API_BASE);
+    }
+
+    LogsUpdater(Secret apiKey, Secret apiSecret, URI logsApiBase) {
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
+        this.logsApiBase = logsApiBase;
     }
 
     public void sendUpdate(WebhookEvent event, ForwardResponse response) {
@@ -69,15 +70,17 @@ public class LogsUpdater {
             String basicAuth = "Basic " + Base64.getEncoder().encodeToString(
                     credentials.getBytes(StandardCharsets.UTF_8));
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(LOGS_API_BASE + logId))
-                    .timeout(Duration.ofSeconds(10))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", basicAuth)
-                    .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))
-                    .build();
+            Map<String, String> headers = new LinkedHashMap<>();
+            headers.put("Content-Type", "application/json");
+            headers.put("Authorization", basicAuth);
 
-            HttpResponse<Void> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            JenkinsProxySupport.HttpResponse httpResponse = JenkinsProxySupport.send(
+                    URI.create(logsApiBase + logId),
+                    "PUT",
+                    headers,
+                    jsonPayload.getBytes(StandardCharsets.UTF_8),
+                    Duration.ofSeconds(5),
+                    Duration.ofSeconds(10));
             if (httpResponse.statusCode() == 200) {
                 LOGGER.fine("Log update sent for webhook " + logId);
             } else {
@@ -86,9 +89,6 @@ public class LogsUpdater {
             }
         } catch (java.io.IOException e) {
             LOGGER.log(Level.WARNING, "Failed to send log update", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            LOGGER.log(Level.WARNING, "Log update interrupted", e);
         }
     }
 
