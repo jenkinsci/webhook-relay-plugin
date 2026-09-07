@@ -12,10 +12,10 @@ tunnel), every request is recorded on the bucket's logs page, giving you a full
 request/response history for debugging.
 
 ```
-GitHub / GitLab / Bitbucket
+GitHub / GitLab / Bitbucket / Gitea
         │  (webhook)
         ▼
-https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into the SCM (GitHub, GitLab, Bitbucket)
+https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into the SCM (GitHub, GitLab, Bitbucket, Gitea)
         │
         ▼
    Webhook Relay bucket  ──────────────►  logs page (every request + Jenkins response)
@@ -34,6 +34,24 @@ https://<your-bucket>.hooks.webhookrelay.com      ← public URL you paste into 
 3. The plugin replays the request against the Jenkins webhook endpoint for your SCM
    (selected via the **SCM Webhook Preset**) and sends Jenkins' response (status, headers,
    body) back to the bucket log.
+
+## Which Jenkins endpoint does each provider use?
+
+The **SCM Webhook Preset** decides where inside Jenkins the plugin replays each webhook. These
+are the same endpoints you would give the provider if Jenkins were public — the plugin just
+delivers to them from the inside.
+
+| Provider | Preset | Jenkins endpoint the plugin delivers to | Trigger plugin on the job |
+|---|---|---|---|
+| GitHub | GitHub | `/github-webhook/` | GitHub plugin — *GitHub hook trigger for GITScm polling* |
+| GitLab | GitLab | `/project/<job-name>` | GitLab plugin — *Build when a change is pushed to GitLab* |
+| Bitbucket (Cloud and Server) | Bitbucket | `/bitbucket-hook/` | Bitbucket plugin — push trigger |
+| Gitea / Forgejo | Gitea | `/gitea-webhook/post` | Gitea plugin — push trigger |
+| Anything else (Jira, custom tools, other CI) | Generic Webhook Trigger | `/generic-webhook-trigger/invoke` | Generic Webhook Trigger plugin |
+| Your own path | Custom | whatever you configure, or the bucket's internal output destination | — |
+
+The trailing slash on `/github-webhook/` and `/bitbucket-hook/` matters: Jenkins answers
+`403 No valid crumb was included in the request` when it is missing. The presets include it.
 
 ## Installation
 
@@ -155,6 +173,48 @@ Webhook Relay section as above. See [`demo/README.md`](demo/README.md) for detai
 | Status shows **Disconnected** | The plugin reconnects automatically with backoff; check Jenkins logs. |
 | Webhook arrives but no build | Make sure the job's hook trigger is enabled and (for GitHub) the Git remote URL matches the pushed repo. |
 | Nothing in the bucket logs | Confirm the SCM is pointed at the bucket's public URL (the **Get Webhook URL** value). |
+
+## FAQ
+
+**Can Jenkins receive GitHub webhooks without a public IP?**
+Yes. Install this plugin, add your API token and bucket, and Jenkins subscribes to the bucket
+over an outbound WebSocket. GitHub posts to the bucket's public URL and the plugin replays
+each request to `/github-webhook/` inside Jenkins. No inbound ports, reverse proxy or public
+IP address is required.
+
+**Does this work with GitLab, Bitbucket and Gitea as well?**
+Yes. Pick the matching preset and the plugin replays each webhook to that provider's Jenkins
+endpoint (`/project/<job>`, `/bitbucket-hook/`, `/gitea-webhook/post`). Anything that can
+POST to an HTTPS URL — Jira, in-house tooling, another CI — can trigger Jenkins the same way
+through the Generic Webhook Trigger preset.
+
+**Do I need to run a separate relay agent next to Jenkins?**
+No. The plugin runs inside Jenkins, so there is nothing else to install or keep alive. If you
+prefer, the [`relay` CLI or Docker agent](https://webhookrelay.com/docs/webhooks/internal/localhost/)
+can forward to Jenkins from any machine on the same private network instead.
+
+**What happens if Jenkins is offline when a webhook arrives?**
+Webhook Relay stores the request, so the provider sees a successful response and does not
+give up. With durable retries enabled on the bucket, delivery is retried for up to 30 days;
+with *replay missing on connect* enabled on the output, requests that arrived while the plugin
+was disconnected are redelivered when it reconnects; and every request can be re-sent from
+the bucket's logs page.
+
+**Can I filter which events reach Jenkins?**
+Yes. Add forwarding rules or a transformation function on the bucket to only forward pushes to
+certain branches, pull-request events, or requests with a valid signature, so Jenkins never
+sees the rest. See [filter or drop webhooks](https://webhookrelay.com/docs/webhooks/functions/filter-webhooks/).
+
+**Does Jenkins inside Kubernetes need this plugin or the operator?**
+Either works. The plugin needs no cluster-level setup; the
+[Webhook Relay Kubernetes operator](https://webhookrelay.com/features/webhook-kubernetes-integration/)
+is the better fit when several in-cluster services should receive webhooks declaratively.
+
+## Further reading
+
+- [Jenkins plugin tutorial](https://webhookrelay.com/docs/tutorials/cicd/jenkins-plugin/) — step-by-step with screenshots.
+- [Jenkins webhooks: the complete setup guide](https://webhookrelay.com/blog/jenkins-webhooks/) — every Jenkins webhook URL for GitHub, Bitbucket, GitLab and Gitea, and how to fix `403 No valid crumb`.
+- [Webhooks to internal servers](https://webhookrelay.com/features/webhook-to-internal-server/) — the delivery model behind the plugin.
 
 ## Development
 
