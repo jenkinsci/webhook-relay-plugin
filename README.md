@@ -110,8 +110,8 @@ unsigned or mis-signed requests with `401` before they are forwarded:
 | Gitea / Forgejo | `X-Gitea-Signature: <HMAC-SHA256 of body>` |
 | GitLab | `X-Gitlab-Token` equals the secret |
 
-On **Save** (and on **Get Webhook URL**) the plugin creates or updates a Webhook Relay
-[Function](https://webhookrelay.com/docs/webhooks/auth/hmac/) named
+On **Save** (and on **Get Webhook URL**) the plugin creates or updates a JavaScript Webhook Relay
+[Function](https://webhookrelay.com/docs/webhooks/functions/) named
 `jenkins-<preset>-signature-check-<bucket>`, stores the secret in its `WEBHOOK_SECRET`
 config variable and attaches it to every input of the configured bucket(s). The result is
 shown under **Signature Verification** on the configuration page. It is re-applied only when

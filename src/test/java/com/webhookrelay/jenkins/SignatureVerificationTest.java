@@ -9,6 +9,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -20,54 +21,53 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SignatureVerificationTest {
 
+    /**
+     * The fixtures under src/test/resources/.../signature/ are the exact sources
+     * that were run end to end against production Webhook Relay. What the plugin
+     * ships must stay byte-identical to them.
+     */
     @Test
-    void githubChecksPrefixedHmacHeader() {
-        String lua = SignatureVerification.luaSource("github");
-        assertTrue(lua.contains("r.RequestHeader['X-Hub-Signature-256']"));
-        assertTrue(lua.contains("crypto.hmac('sha256', r.RequestBody, secret)"));
-        assertTrue(lua.contains("local expected = 'sha256=' .. digest"));
-        assertTrue(lua.contains("cfg:GetValue('WEBHOOK_SECRET')"));
+    void generatedSourceIsByteIdenticalToTestedFixtures() throws IOException {
+        for (String preset : new String[] {"github", "gitlab", "bitbucket", "gitea"}) {
+            String resource = "signature/" + preset + ".js";
+            try (InputStream in = SignatureVerificationTest.class.getResourceAsStream(resource)) {
+                assertNotNull(in, "missing fixture " + resource);
+                assertEquals(new String(in.readAllBytes(), StandardCharsets.UTF_8),
+                        SignatureVerification.functionSource(preset), preset);
+            }
+        }
     }
 
     @Test
-    void bitbucketChecksPrefixedXHubSignature() {
-        String lua = SignatureVerification.luaSource("bitbucket");
-        assertTrue(lua.contains("r.RequestHeader['X-Hub-Signature']"));
-        assertTrue(lua.contains("local expected = 'sha256=' .. digest"));
-    }
-
-    @Test
-    void giteaChecksUnprefixedHmac() {
-        String lua = SignatureVerification.luaSource("gitea");
-        assertTrue(lua.contains("r.RequestHeader['X-Gitea-Signature']"));
-        assertTrue(lua.contains("local expected = '' .. digest"));
-    }
-
-    @Test
-    void gitlabComparesTokenWithoutHmacOfBody() {
-        String lua = SignatureVerification.luaSource("gitlab");
-        assertTrue(lua.contains("r.RequestHeader['X-Gitlab-Token']"));
-        assertTrue(lua.contains("local expected = secret"));
-        assertFalse(lua.contains("r.RequestBody"));
-        assertFalse(lua.contains("string.lower"), "tokens are case-sensitive");
+    void presetsCheckTheProviderHeader() {
+        assertTrue(SignatureVerification.functionSource("github").contains(
+                "const expected = \"sha256=\" + crypto.hmac(\"sha256\", secret, r.body)"));
+        assertTrue(SignatureVerification.functionSource("bitbucket").contains(
+                "r.headers[\"X-Hub-Signature\"]"));
+        assertTrue(SignatureVerification.functionSource("gitea").contains(
+                "const expected = crypto.hmac(\"sha256\", secret, r.body)"));
+        String gitlab = SignatureVerification.functionSource("gitlab");
+        assertTrue(gitlab.contains("const expected = secret"));
+        assertFalse(gitlab.contains("r.body"));
     }
 
     @Test
     void rejectionsFailClosedAndNeverEchoTheExpectedValue() {
         for (String preset : new String[] {"github", "gitlab", "bitbucket", "gitea"}) {
-            String lua = SignatureVerification.luaSource(preset);
-            assertTrue(lua.contains("r:SetResponseStatusCode(401)"), preset);
-            assertTrue(lua.contains("r:StopForwarding()"), preset);
-            assertTrue(lua.contains("if secret == '' or provided == '' then"), preset);
-            assertTrue(lua.contains("r:SetResponseBody('invalid webhook signature')"), preset);
+            String js = SignatureVerification.functionSource(preset);
+            assertTrue(js.contains("if (!secret || !received ||"), preset);
+            assertTrue(js.contains("r.setResponseStatus(401)"), preset);
+            assertTrue(js.contains("r.stopForwarding()"), preset);
+            assertTrue(js.contains("r.setResponseBody(\"invalid webhook signature\")"), preset);
             // The only response body is the fixed string above.
-            assertEquals(1, lua.split("SetResponseBody", -1).length - 1, preset);
+            assertEquals(1, js.split("setResponseBody", -1).length - 1, preset);
         }
     }
 
@@ -75,7 +75,7 @@ class SignatureVerificationTest {
     void genericAndCustomPresetsAreUnsupported() {
         assertNull(SignatureVerification.scheme("generic"));
         assertNull(SignatureVerification.scheme("custom"));
-        assertThrows(IllegalArgumentException.class, () -> SignatureVerification.luaSource("generic"));
+        assertThrows(IllegalArgumentException.class, () -> SignatureVerification.functionSource("generic"));
     }
 
     @Test
@@ -94,10 +94,10 @@ class SignatureVerificationTest {
     @Test
     void functionRequestBodyBase64EncodesTheSource() {
         JsonObject body = JsonParser.parseString(
-                WebhookRelayAPI.functionRequestBody("fn", "lua", "print('hi')")).getAsJsonObject();
+                WebhookRelayAPI.functionRequestBody("fn", "js", "console.log('hi')")).getAsJsonObject();
         assertEquals("fn", body.get("name").getAsString());
-        assertEquals("lua", body.get("driver").getAsString());
-        assertEquals("print('hi')", new String(
+        assertEquals("js", body.get("driver").getAsString());
+        assertEquals("console.log('hi')", new String(
                 Base64.getDecoder().decode(body.get("payload").getAsString()), StandardCharsets.UTF_8));
     }
 
@@ -112,7 +112,7 @@ class SignatureVerificationTest {
             assertTrue(summary.contains("X-Hub-Signature-256"));
             JsonObject created = relay.body("POST /v1/functions");
             assertEquals("jenkins-github-signature-check-jenkins", created.get("name").getAsString());
-            assertEquals("lua", created.get("driver").getAsString());
+            assertEquals("js", created.get("driver").getAsString());
 
             JsonObject config = relay.body("PUT /v1/functions/f-new/config");
             assertEquals("WEBHOOK_SECRET", config.get("key").getAsString());
@@ -220,11 +220,41 @@ class SignatureVerificationTest {
         }
     }
 
+    @Test
+    @WithJenkins
+    void pluginSyncSurfacesFunctionCreateFailure(JenkinsRule jenkins) throws Exception {
+        WebhookRelayPlugin plugin = WebhookRelayPlugin.get();
+        plugin.setBuckets("jenkins");
+        plugin.setScmPreset("github");
+        plugin.setWebhookSecret(Secret.fromString("s3cret"));
+        try (FakeRelay relay = new FakeRelay("")) {
+            relay.createFunctionError = "you have reached the maximum amount of functions for your account (100), "
+                    + "delete some existing ones before creating new";
+            plugin.syncSignatureVerification(relay.api());
+            assertTrue(plugin.isVerificationFailed());
+            assertTrue(plugin.getVerificationStatus().startsWith("Signature verification sync failed:"),
+                    plugin.getVerificationStatus());
+            assertTrue(plugin.getVerificationStatus().contains("HTTP 400"), plugin.getVerificationStatus());
+            assertTrue(plugin.getVerificationStatus().contains("maximum amount of functions for your account (100)"),
+                    plugin.getVerificationStatus());
+            // Nothing was attached, and the failed state is retried on the next start.
+            assertFalse(relay.requests.containsKey("PUT /v1/buckets/b1/inputs/i1"));
+            assertEquals("github|jenkins", plugin.desiredVerification());
+        }
+        try (FakeRelay relay = new FakeRelay("")) {
+            plugin.syncSignatureVerification(relay.api());
+            assertFalse(plugin.isVerificationFailed(), plugin.getVerificationStatus());
+            assertEquals("f-new", relay.body("PUT /v1/buckets/b1/inputs/i1").get("function_id").getAsString());
+        }
+    }
+
     /** Minimal stand-in for the Webhook Relay REST API that records request bodies. */
     private static final class FakeRelay implements AutoCloseable {
         final HttpServer server;
         final Map<String, String> requests = new ConcurrentHashMap<>();
         volatile String functions = "[]";
+        /** When set, POST /v1/functions fails with HTTP 400 and this body. */
+        volatile String createFunctionError;
 
         FakeRelay(String attachedFunctionId) throws IOException {
             String bucket = "{\"id\":\"b1\",\"name\":\"jenkins\",\"inputs\":[{\"id\":\"i1\",\"name\":\"default\","
@@ -234,6 +264,13 @@ class SignatureVerificationTest {
             server.createContext("/v1/", exchange -> {
                 String key = exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath();
                 requests.put(key, new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+                if ("POST /v1/functions".equals(key) && createFunctionError != null) {
+                    byte[] error = createFunctionError.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(400, error.length);
+                    exchange.getResponseBody().write(error);
+                    exchange.close();
+                    return;
+                }
                 String response;
                 switch (key) {
                     case "GET /v1/functions":
