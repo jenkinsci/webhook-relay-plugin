@@ -42,11 +42,22 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
     private String buckets = "";
     private boolean enabled = true;
     private String scmPreset = "github";
+    private Secret webhookSecret;
+    /**
+     * What signature verification was last successfully applied on Webhook Relay,
+     * as {@code preset|bucket1,bucket2} ("" when none). Lets a restart skip the
+     * API calls when nothing changed.
+     */
+    private String appliedVerification = "";
 
     private transient ConnectionManager connectionManager;
     private transient volatile ConnectionStatus connectionStatus = ConnectionStatus.DISCONNECTED;
     private transient volatile String statusMessage = "";
     private transient volatile String bucketId;
+    private transient volatile String verificationStatus = "";
+    private transient volatile boolean verificationFailed;
+    /** Set when the webhook secret value changed and must be pushed again. */
+    private transient volatile boolean verificationSecretChanged;
 
     public WebhookRelayPlugin() {
         load();
@@ -104,6 +115,24 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         this.scmPreset = scmPreset;
     }
 
+    public Secret getWebhookSecret() {
+        return webhookSecret;
+    }
+
+    @DataBoundSetter
+    public void setWebhookSecret(Secret webhookSecret) {
+        this.webhookSecret = webhookSecret;
+    }
+
+    /** Outcome of the last signature verification sync ("" if none ran). */
+    public String getVerificationStatus() {
+        return verificationStatus;
+    }
+
+    public boolean isVerificationFailed() {
+        return verificationFailed;
+    }
+
     public ConnectionStatus getConnectionStatus() {
         return connectionStatus;
     }
@@ -138,6 +167,25 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         this.statusMessage = message != null ? message : "";
     }
 
+    @POST
+    public FormValidation doCheckWebhookSecret(
+            @QueryParameter("webhookSecret") Secret webhookSecret,
+            @QueryParameter("scmPreset") String scmPreset,
+            @QueryParameter("buckets") String buckets) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        if (!hasValue(webhookSecret)) {
+            return FormValidation.ok();
+        }
+        String preset = (scmPreset == null || scmPreset.isEmpty()) ? "github" : scmPreset;
+        if (SignatureVerification.scheme(preset) == null) {
+            return FormValidation.error(SignatureVerification.unsupportedMessage(preset));
+        }
+        if (firstBucketName(buckets) == null) {
+            return FormValidation.error("Signature verification needs a bucket name above");
+        }
+        return FormValidation.ok();
+    }
+
     public ListBoxModel doFillScmPresetItems() {
         ListBoxModel items = new ListBoxModel();
         items.add("GitHub (github-webhook/)", "github");
@@ -153,7 +201,11 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
     public boolean configure(StaplerRequest2 req, JSONObject json) throws FormException {
         stopConnection();
 
+        String previousSecret = Secret.toString(webhookSecret);
         req.bindJSON(this, json);
+        if (!previousSecret.equals(Secret.toString(webhookSecret))) {
+            verificationSecretChanged = true;
+        }
         save();
 
         if (enabled && isConfigured()) {
@@ -276,16 +328,18 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
             @QueryParameter("apiKey") Secret apiKey,
             @QueryParameter("apiSecret") Secret apiSecret,
             @QueryParameter("buckets") String buckets,
-            @QueryParameter("scmPreset") String scmPreset) throws java.io.IOException {
+            @QueryParameter("scmPreset") String scmPreset,
+            @QueryParameter("webhookSecret") Secret webhookSecret) throws java.io.IOException {
 
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
-        JSONObject result = resolveWebhookUrl(apiKey, apiSecret, buckets, scmPreset);
+        JSONObject result = resolveWebhookUrl(apiKey, apiSecret, buckets, scmPreset, webhookSecret);
         rsp.setContentType("application/json;charset=UTF-8");
         rsp.getWriter().write(result.toString());
     }
 
-    private JSONObject resolveWebhookUrl(Secret apiKey, Secret apiSecret, String buckets, String scmPreset) {
+    private JSONObject resolveWebhookUrl(Secret apiKey, Secret apiSecret, String buckets, String scmPreset,
+                                         Secret webhookSecret) {
         JSONObject result = new JSONObject();
         if (apiKey == null || Secret.toString(apiKey).isEmpty()) {
             return result.element("ok", false).element("error", "API Key is required");
@@ -317,6 +371,19 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
             String inputUrl = input.endpointUrl();
             LOGGER.info("Resolved webhook URL for bucket '" + bucketName + "': " + inputUrl);
 
+            if (hasValue(webhookSecret)) {
+                try {
+                    result.element("verification",
+                            SignatureVerification.enable(api, bucket, preset, webhookSecret));
+                    // The form value may not be saved yet; re-push the saved one on the next start.
+                    verificationSecretChanged = true;
+                } catch (java.io.IOException e) {
+                    LOGGER.log(Level.WARNING, "Failed to configure signature verification", e);
+                    result.element("verificationError",
+                            "Signature verification is NOT active: " + e.getMessage());
+                }
+            }
+
             return result.element("ok", true)
                     .element("url", inputUrl)
                     .element("preset", preset)
@@ -342,6 +409,97 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
         return null;
     }
 
+    private static boolean hasValue(Secret secret) {
+        return secret != null && !Secret.toString(secret).isEmpty();
+    }
+
+    /** The verification state the current configuration asks for ("" for none). */
+    String desiredVerification() {
+        if (!hasValue(webhookSecret)) {
+            return "";
+        }
+        return getScmPresetOrDefault() + "|" + String.join(",", parseBuckets());
+    }
+
+    private String getScmPresetOrDefault() {
+        return (scmPreset == null || scmPreset.isEmpty()) ? "github" : scmPreset;
+    }
+
+    /**
+     * Brings Webhook Relay in line with the configured webhook secret: attaches
+     * the verification function to each bucket when a secret is set, and
+     * detaches it (from buckets this plugin previously protected) when the
+     * secret is cleared or a bucket is removed from the list. Runs once per
+     * connection start, not per reconnect, and only calls the API when the
+     * preset, bucket list or secret changed since the last successful sync.
+     */
+    synchronized void syncSignatureVerification(WebhookRelayAPI api) {
+        String desired = desiredVerification();
+        String applied = appliedVerification != null ? appliedVerification : "";
+        if (desired.equals(applied) && !verificationSecretChanged) {
+            if (!desired.isEmpty() && verificationStatus.isEmpty()) {
+                verificationStatus = "Signature verification active for " + parseBuckets();
+                verificationFailed = false;
+            }
+            return;
+        }
+
+        List<String> wantedBuckets = desired.isEmpty() ? new ArrayList<>() : parseBuckets();
+        List<String> messages = new ArrayList<>();
+        try {
+            if (!desired.isEmpty()) {
+                String preset = getScmPresetOrDefault();
+                if (SignatureVerification.scheme(preset) == null) {
+                    throw new java.io.IOException(SignatureVerification.unsupportedMessage(preset));
+                }
+                if (wantedBuckets.isEmpty()) {
+                    throw new java.io.IOException(
+                            "Signature verification needs explicit bucket name(s); none configured");
+                }
+            }
+
+            // Detach from buckets that were protected before but no longer should be.
+            for (String bucketName : bucketsOf(applied)) {
+                if (wantedBuckets.contains(bucketName)) {
+                    continue;
+                }
+                WebhookRelayAPI.Bucket bucket = api.findBucketByName(bucketName);
+                if (bucket != null) {
+                    List<String> detached = SignatureVerification.disable(api, api.getBucket(bucket.id));
+                    if (!detached.isEmpty()) {
+                        messages.add("Signature verification removed from bucket '" + bucketName + "'");
+                    }
+                }
+            }
+
+            for (String bucketName : wantedBuckets) {
+                WebhookRelayAPI.Bucket bucket = api.findOrCreateBucket(bucketName);
+                messages.add(SignatureVerification.enable(api, bucket, getScmPresetOrDefault(), webhookSecret));
+            }
+
+            appliedVerification = desired;
+            verificationSecretChanged = false;
+            save();
+            verificationStatus = String.join("; ", messages);
+            verificationFailed = false;
+        } catch (java.io.IOException | RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to sync webhook signature verification", e);
+            verificationStatus = "Signature verification sync failed: " + e.getMessage();
+            verificationFailed = true;
+        }
+    }
+
+    private static List<String> bucketsOf(String verification) {
+        int sep = verification.indexOf('|');
+        if (sep < 0) {
+            return new ArrayList<>();
+        }
+        return Arrays.stream(verification.substring(sep + 1).split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+    }
+
     private boolean isConfigured() {
         return apiKey != null && !Secret.toString(apiKey).isEmpty()
                 && apiSecret != null && !Secret.toString(apiSecret).isEmpty();
@@ -362,6 +520,8 @@ public class WebhookRelayPlugin extends GlobalConfiguration {
             connectionManager.stop();
         }
         LOGGER.info("Starting Webhook Relay connection");
+        WebhookRelayAPI api = new WebhookRelayAPI(apiKey, apiSecret);
+        jenkins.util.Timer.get().submit(() -> syncSignatureVerification(api));
         connectionManager = new ConnectionManager(
                 this,
                 apiKey,

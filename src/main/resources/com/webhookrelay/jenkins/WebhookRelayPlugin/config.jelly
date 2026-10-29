@@ -26,6 +26,11 @@
         <f:select />
       </f:entry>
 
+      <f:entry title="Webhook secret" field="webhookSecret"
+               description="Optional. The secret you set on the repository webhook. When set, Webhook Relay checks each request's signature (GitHub, Bitbucket, Gitea) or token (GitLab) and rejects invalid ones with 401 before they reach Jenkins.">
+        <f:password checkMethod="post" />
+      </f:entry>
+
       <f:entry title="Connection Status">
         <j:choose>
           <j:when test="${instance.connectionStatus.name() == 'SUBSCRIBED' ||
@@ -67,6 +72,23 @@
         </j:if>
       </f:entry>
 
+      <j:if test="${instance.verificationStatus != ''}">
+        <f:entry title="Signature Verification">
+          <j:choose>
+            <j:when test="${instance.verificationFailed}">
+              <div class="jenkins-alert jenkins-alert-danger" style="margin:0;">
+                <j:out value="${instance.verificationStatus}" />
+              </div>
+            </j:when>
+            <j:otherwise>
+              <div class="jenkins-alert jenkins-alert-success" style="margin:0;">
+                <j:out value="${instance.verificationStatus}" />
+              </div>
+            </j:otherwise>
+          </j:choose>
+        </f:entry>
+      </j:if>
+
       <f:entry>
         <f:validateButton title="Test Connection" progress="Testing..."
                           method="testConnection"
@@ -95,6 +117,7 @@
                         tooltip="Copy URL" clazz="jenkins-button--tertiary" />
         </div>
         <p id="webhook-relay-url-note" />
+        <p id="webhook-relay-url-verification" class="jenkins-hidden" />
         <p>
           <a id="webhook-relay-url-bucket" href="#" target="_blank" rel="noopener noreferrer"
              class="jenkins-hidden" style="display: flex; align-items: center; gap: 0.5rem;">
