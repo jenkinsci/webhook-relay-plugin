@@ -70,7 +70,8 @@ You will need a free [Webhook Relay](https://webhookrelay.com) account and an AP
 3. Enter a **Bucket name** (e.g. `jenkins-plugin`). It can be an existing bucket or a new
    name — the plugin creates it for you.
 4. Choose your **SCM Webhook Preset** (GitHub, GitLab, Bitbucket, Gitea, or Generic Webhook Trigger).
-5. Tick **Enable** and click **Save**.
+5. Optionally enter a **Webhook secret** (see [Signature verification](#signature-verification)).
+6. Tick **Enable** and click **Save**.
 
 ![Configure the Webhook Relay plugin](docs/images/03-config-subscribed.png)
 
@@ -94,6 +95,34 @@ into your repository's webhook settings.
 
 That's it — you don't change anything else in the SCM. Webhook Relay receives the webhook
 on the public URL and the plugin forwards it to the right Jenkins endpoint.
+
+### Signature verification
+
+Webhook Relay forwards every request that reaches the public URL, so without a check anyone
+who learns the URL can reach Jenkins' webhook handler. Set **Webhook secret** to the same
+secret you configure on the repository webhook and the plugin makes Webhook Relay reject
+unsigned or mis-signed requests with `401` before they are forwarded:
+
+| Preset | Checked header |
+|---|---|
+| GitHub | `X-Hub-Signature-256: sha256=<HMAC-SHA256 of body>` |
+| Bitbucket Cloud | `X-Hub-Signature: sha256=<HMAC-SHA256 of body>` |
+| Gitea / Forgejo | `X-Gitea-Signature: <HMAC-SHA256 of body>` |
+| GitLab | `X-Gitlab-Token` equals the secret |
+
+On **Save** (and on **Get Webhook URL**) the plugin creates or updates a JavaScript Webhook Relay
+[Function](https://webhookrelay.com/docs/webhooks/functions/) named
+`jenkins-<preset>-signature-check-<bucket>`, stores the secret in its `WEBHOOK_SECRET`
+config variable and attaches it to every input of the configured bucket(s). The result is
+shown under **Signature Verification** on the configuration page. It is re-applied only when
+the secret, preset or bucket list changes, not on every reconnect.
+
+- Requires explicit bucket name(s); not available for the Generic Webhook Trigger and Custom
+  presets.
+- An input that already has a function you attached yourself is left alone and reported as
+  an error — add the check to your own function instead.
+- Clearing the secret detaches the plugin's function from the inputs on the next save (the
+  function is kept, unused, so the relay goes back to forwarding everything).
 
 ## Triggering builds
 
@@ -161,6 +190,7 @@ Webhook Relay section as above. See [`demo/README.md`](demo/README.md) for detai
 | **API Key / Secret** | Webhook Relay token credentials. Stored encrypted. |
 | **Bucket name** | Bucket(s) to subscribe to (comma-separated). Empty = all buckets. |
 | **SCM Webhook Preset** | Jenkins endpoint to deliver to: `github-webhook/`, `project/` (GitLab), `bitbucket-hook/`, `gitea-webhook/post`, `generic-webhook-trigger/invoke`, or Custom. |
+| **Webhook secret** | Optional. Makes Webhook Relay verify the provider's signature/token and reject invalid requests with `401`. Stored encrypted. |
 
 > **Custom preset / internal outputs:** if you configure an *internal output* on the bucket
 > with a full `http://…` destination, the plugin honours that path instead of the preset.
@@ -172,6 +202,7 @@ Webhook Relay section as above. See [`demo/README.md`](demo/README.md) for detai
 | Status shows **Authentication Failed** | Check the API key/secret. |
 | Status shows **Disconnected** | The plugin reconnects automatically with backoff; check Jenkins logs. |
 | Webhook arrives but no build | Make sure the job's hook trigger is enabled and (for GitHub) the Git remote URL matches the pushed repo. |
+| Webhooks rejected with `401` | The **Webhook secret** differs from the secret on the repository webhook (or the provider sends no secret). |
 | Nothing in the bucket logs | Confirm the SCM is pointed at the bucket's public URL (the **Get Webhook URL** value). |
 
 ## FAQ

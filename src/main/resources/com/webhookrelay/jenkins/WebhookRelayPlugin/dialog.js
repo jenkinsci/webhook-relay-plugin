@@ -24,6 +24,7 @@
             params.append("apiSecret", fieldValue("apiSecret"));
             params.append("buckets", fieldValue("buckets"));
             params.append("scmPreset", fieldValue("scmPreset"));
+            params.append("webhookSecret", fieldValue("webhookSecret"));
 
             var headers = crumb.wrap({ "Content-Type": "application/x-www-form-urlencoded" });
             fetch(btn.dataset.resolveUrl, { method: "POST", headers: headers, body: params.toString() })
@@ -41,6 +42,16 @@
                         content.querySelector("#webhook-relay-url-note").textContent =
                             "Webhooks received here are forwarded to " + data.endpointPath +
                             " on this Jenkins. Enable the connection and Save to start receiving them.";
+
+                        var verification = content.querySelector("#webhook-relay-url-verification");
+                        if (data.verificationError) {
+                            verification.textContent = data.verificationError;
+                            verification.className = "jenkins-alert jenkins-alert-danger";
+                        } else if (data.verification) {
+                            verification.textContent = data.verification +
+                                ". Use the same secret in your repository webhook settings.";
+                            verification.className = "jenkins-alert jenkins-alert-success";
+                        }
 
                         var bucketLink = content.querySelector("#webhook-relay-url-bucket");
                         if (data.bucketUrl) {

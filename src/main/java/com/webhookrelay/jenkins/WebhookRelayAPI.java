@@ -1,6 +1,10 @@
 package com.webhookrelay.jenkins;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 import hudson.util.Secret;
@@ -95,6 +99,73 @@ public class WebhookRelayAPI {
         return gson.fromJson(response, Output.class);
     }
 
+    public List<Function> listFunctions() throws IOException {
+        String response = doRequest("GET", "/functions", null);
+        List<Function> functions = gson.fromJson(response, new TypeToken<List<Function>>() {}.getType());
+        return functions != null ? functions : new java.util.ArrayList<>();
+    }
+
+    /** Creates a function. The source is sent base64-encoded, as the Go SDK does. */
+    public Function createFunction(String name, String driver, String source) throws IOException {
+        String response = doRequest("POST", "/functions", functionRequestBody(name, driver, source));
+        return gson.fromJson(response, Function.class);
+    }
+
+    public Function updateFunction(String id, String name, String driver, String source) throws IOException {
+        String response = doRequest("PUT", "/functions/" + id, functionRequestBody(name, driver, source));
+        return gson.fromJson(response, Function.class);
+    }
+
+    static String functionRequestBody(String name, String driver, String source) {
+        JsonObject body = new JsonObject();
+        body.addProperty("name", name);
+        body.addProperty("driver", driver);
+        body.addProperty("payload", Base64.getEncoder().encodeToString(
+                source.getBytes(StandardCharsets.UTF_8)));
+        return body.toString();
+    }
+
+    /** Sets (creates or overwrites) a function configuration variable. */
+    public void setFunctionConfig(String functionId, String key, String value) throws IOException {
+        JsonObject body = new JsonObject();
+        body.addProperty("key", key);
+        body.addProperty("value", value);
+        doRequest("PUT", "/functions/" + functionId + "/config", body.toString());
+    }
+
+    /**
+     * Attaches a function to an input (or detaches it when {@code functionId} is
+     * empty). The input update API replaces the whole input, so the current
+     * input is re-read and sent back with only {@code function_id} changed.
+     */
+    public void setInputFunction(String bucketId, String inputId, String functionId) throws IOException {
+        JsonObject bucket = JsonParser.parseString(doRequest("GET", "/buckets/" + bucketId, null))
+                .getAsJsonObject();
+        JsonObject input = findInput(bucket, inputId);
+        if (input == null) {
+            throw new IOException("Input " + inputId + " not found in bucket " + bucketId);
+        }
+        input.addProperty("function_id", functionId);
+        doRequest("PUT", "/buckets/" + bucketId + "/inputs/" + inputId, input.toString());
+    }
+
+    private static JsonObject findInput(JsonObject bucket, String inputId) {
+        JsonElement inputs = bucket.get("inputs");
+        if (inputs == null || !inputs.isJsonArray()) {
+            return null;
+        }
+        JsonArray array = inputs.getAsJsonArray();
+        for (JsonElement element : array) {
+            if (element.isJsonObject()) {
+                JsonElement id = element.getAsJsonObject().get("id");
+                if (id != null && !id.isJsonNull() && inputId.equals(id.getAsString())) {
+                    return element.getAsJsonObject();
+                }
+            }
+        }
+        return null;
+    }
+
     private String doRequest(String method, String path, String body) throws IOException {
         String credentials = Secret.toString(apiKey) + ":" + Secret.toString(apiSecret);
         String basicAuth = "Basic " + Base64.getEncoder().encodeToString(
@@ -154,6 +225,8 @@ public class WebhookRelayAPI {
         public String customDomain;
         @SerializedName("path_prefix")
         public String pathPrefix;
+        @SerializedName("function_id")
+        public String functionId;
 
         /**
          * The public webhook URL to paste into your SCM provider. Prefers the
@@ -175,5 +248,11 @@ public class WebhookRelayAPI {
         public String bucketId;
         public String destination;
         public boolean internal;
+    }
+
+    public static class Function {
+        public String id;
+        public String name;
+        public String driver;
     }
 }
